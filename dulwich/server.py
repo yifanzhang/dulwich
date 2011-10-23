@@ -28,7 +28,7 @@ Documentation/technical directory in the cgit distribution, and in particular:
 
 import collections
 import socket
-import SocketServer
+import socketserver
 import sys
 import zlib
 
@@ -240,7 +240,7 @@ class UploadPackHandler(Handler):
                 # TODO: fix behavior when missing
                 return {}
         tagged = {}
-        for name, sha in refs.iteritems():
+        for name, sha in refs.items():
             peeled_sha = repo.get_peeled(name)
             if peeled_sha != sha:
                 tagged[peeled_sha] = sha
@@ -344,9 +344,9 @@ class ProtocolGraphWalker(object):
             # The repo is empty, so short-circuit the whole process.
             self.proto.write_pkt_line(None)
             return None
-        values = set(heads.itervalues())
+        values = set(heads.values())
         if self.advertise_refs or not self.http_req:
-            for i, (ref, sha) in enumerate(sorted(heads.iteritems())):
+            for i, (ref, sha) in enumerate(sorted(heads.items())):
                 line = "%s %s" % (sha, ref)
                 if not i:
                     line = "%s\x00%s" % (line, self.handler.capability_line())
@@ -397,11 +397,11 @@ class ProtocolGraphWalker(object):
         self._cached = True
         self._cache_index = 0
 
-    def next(self):
+    def __next__(self):
         if not self._cached:
             if not self._impl and self.http_req:
                 return None
-            return self._impl.next()
+            return next(self._impl)
         self._cache_index += 1
         if self._cache_index > len(self._cache):
             return None
@@ -493,7 +493,7 @@ class SingleAckGraphWalkerImpl(object):
             self.walker.send_ack(have_ref)
             self._sent_ack = True
 
-    def next(self):
+    def __next__(self):
         command, sha = self.walker.read_proto_line(_GRAPH_WALKER_COMMANDS)
         if command in (None, 'done'):
             if not self._sent_ack:
@@ -519,7 +519,7 @@ class MultiAckGraphWalkerImpl(object):
                 self._found_base = True
         # else we blind ack within next
 
-    def next(self):
+    def __next__(self):
         while True:
             command, sha = self.walker.read_proto_line(_GRAPH_WALKER_COMMANDS)
             if command is None:
@@ -559,7 +559,7 @@ class MultiAckDetailedGraphWalkerImpl(object):
                 self.walker.send_ack(have_ref, 'ready')
         # else we blind ack within next
 
-    def next(self):
+    def __next__(self):
         while True:
             command, sha = self.walker.read_proto_line(_GRAPH_WALKER_COMMANDS)
             if command is None:
@@ -658,7 +658,7 @@ class ReceivePackHandler(Handler):
         flush()
 
     def handle(self):
-        refs = sorted(self.repo.get_refs().iteritems())
+        refs = sorted(self.repo.get_refs().items())
 
         if self.advertise_refs or not self.http_req:
             if refs:
@@ -707,11 +707,11 @@ DEFAULT_HANDLERS = {
   }
 
 
-class TCPGitRequestHandler(SocketServer.StreamRequestHandler):
+class TCPGitRequestHandler(socketserver.StreamRequestHandler):
 
     def __init__(self, handlers, *args, **kwargs):
         self.handlers = handlers
-        SocketServer.StreamRequestHandler.__init__(self, *args, **kwargs)
+        socketserver.StreamRequestHandler.__init__(self, *args, **kwargs)
 
     def handle(self):
         proto = ReceivableProtocol(self.connection.recv, self.wfile.write)
@@ -719,16 +719,16 @@ class TCPGitRequestHandler(SocketServer.StreamRequestHandler):
         logger.info('Handling %s request, args=%s', command, args)
 
         cls = self.handlers.get(command, None)
-        if not callable(cls):
+        if not isinstance(cls, collections.Callable):
             raise GitProtocolError('Invalid service %s' % command)
         h = cls(self.server.backend, args, proto)
         h.handle()
 
 
-class TCPGitServer(SocketServer.TCPServer):
+class TCPGitServer(socketserver.TCPServer):
 
     allow_reuse_address = True
-    serve = SocketServer.TCPServer.serve_forever
+    serve = socketserver.TCPServer.serve_forever
 
     def _make_handler(self, *args, **kwargs):
         return TCPGitRequestHandler(self.handlers, *args, **kwargs)
@@ -739,7 +739,7 @@ class TCPGitServer(SocketServer.TCPServer):
             self.handlers.update(handlers)
         self.backend = backend
         logger.info('Listening for TCP connections on %s:%d', listen_addr, port)
-        SocketServer.TCPServer.__init__(self, (listen_addr, port),
+        socketserver.TCPServer.__init__(self, (listen_addr, port),
                                         self._make_handler)
 
     def verify_request(self, request, client_address):
