@@ -37,7 +37,7 @@ except ImportError:
 
 import binascii
 from io import (
-    StringIO,
+    BytesIO,
     )
 from collections import (
     deque,
@@ -81,6 +81,8 @@ from dulwich.objects import (
     sha_to_hex,
     object_header,
     )
+
+from dulwich.py3k import *
 
 supports_mmap_offset = (sys.version_info[0] >= 3 or
         (sys.version_info[0] == 2 and sys.version_info[1] >= 6))
@@ -545,7 +547,7 @@ class FilePackIndex(PackIndex):
 
         :return: 20-byte binary digest
         """
-        return str(self._contents[-40:-20])
+        return bytes(self._contents[-40:-20])
 
     def get_stored_checksum(self):
         """Return the SHA1 checksum stored for this index.
@@ -641,7 +643,7 @@ def read_pack_header(read):
     header = read(12)
     if not header:
         return None, None
-    if header[:4] != 'PACK':
+    if header[:4] != b'PACK':
         raise AssertionError('Invalid pack header %r' % header)
     (version,) = unpack_from('>L', header, 4)
     if version not in (2, 3):
@@ -651,8 +653,10 @@ def read_pack_header(read):
 
 
 def chunks_length(chunks):
-    return sum(map(len, chunks))
-
+    if isinstance(chunks, (list, tuple, dict)):
+        return sum([len(a) for a in chunks])
+    else:
+        return len(chunks)
 
 def unpack_object(read_all, read_some=None, compute_crc32=False,
                   include_comp=False, zlib_bufsize=_ZLIB_BUFSIZE):
@@ -740,7 +744,7 @@ class PackStreamReader(object):
             self.read_some = read_some
         self.sha = make_sha()
         self._offset = 0
-        self._rbuf = StringIO()
+        self._rbuf = BytesIO()
         # trailer is a deque to avoid memory allocation on small reads
         self._trailer = deque()
         self._zlib_bufsize = zlib_bufsize
@@ -768,11 +772,12 @@ class PackStreamReader(object):
             to_pop = max(n + tn - 20, 0)
             to_add = n
         for _ in range(to_pop):
-            self.sha.update(self._trailer.popleft())
+            self.sha.update(convert3kstr(self._trailer.popleft(), BYTES|AGGRESSIVE))
+
         self._trailer.extend(data[-to_add:])
 
         # hash everything but the trailer
-        self.sha.update(data[:-to_add])
+        self.sha.update(convert3kstr(data[:-to_add], BYTES|AGGRESSIVE))
         return data
 
     def _buf_len(self):
@@ -793,7 +798,7 @@ class PackStreamReader(object):
         if buf_len >= size:
             return self._rbuf.read(size)
         buf_data = self._rbuf.read()
-        self._rbuf = StringIO()
+        self._rbuf = BytesIO()
         return buf_data + self._read(self.read_all, size - buf_len)
 
     def recv(self, size):
@@ -802,7 +807,7 @@ class PackStreamReader(object):
         if buf_len:
             data = self._rbuf.read(size)
             if size >= buf_len:
-                self._rbuf = StringIO()
+                self._rbuf = BytesIO()
             return data
         return self._read(self.read_some, size)
 
@@ -839,7 +844,7 @@ class PackStreamReader(object):
             unpacked.offset = offset
 
             # prepend any unused data to current read buffer
-            buf = StringIO()
+            buf = BytesIO()
             buf.write(unused)
             buf.write(self._rbuf.read())
             buf.seek(0)
@@ -854,7 +859,7 @@ class PackStreamReader(object):
             # read buffer and (20 - N) come from the wire.
             self.read(20)
 
-        pack_sha = ''.join(self._trailer)
+        pack_sha = bytes(self._trailer)
         if pack_sha != self.sha.digest():
             raise ChecksumMismatch(sha_to_hex(pack_sha), self.sha.hexdigest())
 
@@ -904,9 +909,9 @@ class PackStreamCopier(PackStreamReader):
 def obj_sha(type, chunks):
     """Compute the SHA for a numeric type and object chunks."""
     sha = make_sha()
-    sha.update(object_header(type, chunks_length(chunks)))
+    sha.update(convert3kstr(object_header(type, chunks_length(chunks)), BYTES))
     for chunk in chunks:
-        sha.update(chunk)
+        sha.update(convert3kstr(chunk, BYTES|AGGRESSIVE))
     return sha.digest()
 
 
@@ -1349,6 +1354,7 @@ class SHA1Writer(object):
         self.length = 0
         self.sha1 = make_sha('')
 
+    @wrap3kstr(data=BYTES)
     def write(self, data):
         self.sha1.update(data)
         self.f.write(data)
@@ -1381,14 +1387,14 @@ def pack_object_header(type_num, delta_base, size):
     :param size: Uncompressed object size.
     :return: A header for a packed object.
     """
-    header = ''
+    header = b''
     c = (type_num << 4) | (size & 15)
     size >>= 4
     while size:
-        header += (chr(c | 0x80))
+        header += bytes((c | 0x80,))
         c = size & 0x7f
         size >>= 7
-    header += chr(c)
+    header += bytes((c,))
     if type_num == OFS_DELTA:
         ret = [delta_base & 0x7f]
         delta_base >>= 7
@@ -1396,7 +1402,7 @@ def pack_object_header(type_num, delta_base, size):
             delta_base -= 1
             ret.insert(0, 0x80 | (delta_base & 0x7f))
             delta_base >>= 7
-        header += ''.join([chr(x) for x in ret])
+        header += b''.join([bytes((x),) for x in ret])
     elif type_num == REF_DELTA:
         assert len(delta_base) == 20
         header += delta_base
@@ -1422,7 +1428,7 @@ def write_pack_object(f, type, object, sha=None):
         f.write(data)
         if sha is not None:
             sha.update(data)
-        crc32 = binascii.crc32(data, crc32)
+        crc32 = binascii.crc32(convert3kstr(data, BYTES), crc32)
     return crc32 & 0xffffffff
 
 
@@ -1454,7 +1460,7 @@ def write_pack(filename, objects, num_objects=None):
 
 def write_pack_header(f, num_objects):
     """Write a pack header for the given number of objects."""
-    f.write('PACK')                          # Pack header
+    f.write(b'PACK')                         # Pack header
     f.write(struct.pack('>L', 2))            # Pack version
     f.write(struct.pack('>L', num_objects))  # Number of objects in pack
 
@@ -1564,26 +1570,27 @@ def write_pack_index_v1(f, entries, pack_checksum):
     f.write(pack_checksum)
     return f.write_sha()
 
-
+@wrap3kstr(base_buf=BYTES, target_buf=BYTES)
 def create_delta(base_buf, target_buf):
     """Use python difflib to work out how to transform base_buf to target_buf.
 
     :param base_buf: Base buffer
     :param target_buf: Target buffer
     """
-    assert isinstance(base_buf, str)
-    assert isinstance(target_buf, str)
-    out_buf = ''
+    assert isinstance(base_buf, bytes)
+    assert isinstance(target_buf, bytes)
+
+    out_buf = b''
     # write delta header
     def encode_size(size):
-        ret = ''
+        ret = b''
         c = size & 0x7f
         size >>= 7
         while size:
-            ret += chr(c | 0x80)
+            ret += c | 0x80
             c = size & 0x7f
             size >>= 7
-        ret += chr(c)
+        ret += bytes((c,))
         return ret
     out_buf += encode_size(len(base_buf))
     out_buf += encode_size(len(target_buf))
@@ -1596,19 +1603,19 @@ def create_delta(base_buf, target_buf):
         if opcode == 'equal':
             # If they are equal, unpacker will use data from base_buf
             # Write out an opcode that says what range to use
-            scratch = ''
+            scratch = b''
             op = 0x80
             o = i1
             for i in range(4):
                 if o & 0xff << i*8:
-                    scratch += chr((o >> i*8) & 0xff)
+                    scratch += bytes(((o >> i*8) & 0xff,))
                     op |= 1 << i
             s = i2 - i1
             for i in range(2):
                 if s & 0xff << i*8:
-                    scratch += chr((s >> i*8) & 0xff)
+                    scratch += bytes(((s >> i*8) & 0xff,))
                     op |= 1 << (4+i)
-            out_buf += chr(op)
+            out_buf += bytes((op,))
             out_buf += scratch
         if opcode == 'replace' or opcode == 'insert':
             # If we are replacing a range or adding one, then we just
@@ -1616,14 +1623,13 @@ def create_delta(base_buf, target_buf):
             s = j2 - j1
             o = j1
             while s > 127:
-                out_buf += chr(127)
+                out_buf += bytes((127,))
                 out_buf += target_buf[o:o+127]
                 s -= 127
                 o += 127
-            out_buf += chr(s)
+            out_buf += bytes((s,))
             out_buf += target_buf[o:o+s]
     return out_buf
-
 
 def apply_delta(src_buf, delta):
     """Based on the similar function in git's patch-delta.c.
@@ -1631,10 +1637,12 @@ def apply_delta(src_buf, delta):
     :param src_buf: Source buffer
     :param delta: Delta instructions
     """
-    if type(src_buf) != str:
-        src_buf = ''.join(src_buf)
-    if type(delta) != str:
-        delta = ''.join(delta)
+
+    if type(src_buf) != bytes:
+        src_buf = b''.join(src_buf)
+    if type(delta) != bytes:
+        delta = b''.join(delta)
+
     out = []
     index = 0
     delta_length = len(delta)
@@ -1642,7 +1650,7 @@ def apply_delta(src_buf, delta):
         size = 0
         i = 0
         while delta:
-            cmd = ord(delta[index])
+            cmd = delta[index]
             index += 1
             size |= (cmd & ~0x80) << i
             i += 7
@@ -1653,19 +1661,19 @@ def apply_delta(src_buf, delta):
     dest_size, index = get_delta_header_size(delta, index)
     assert src_size == len(src_buf), '%d vs %d' % (src_size, len(src_buf))
     while index < delta_length:
-        cmd = ord(delta[index])
+        cmd = delta[index]
         index += 1
         if cmd & 0x80:
             cp_off = 0
             for i in range(4):
                 if cmd & (1 << i):
-                    x = ord(delta[index])
+                    x = delta[index]
                     index += 1
                     cp_off |= x << (i * 8)
             cp_size = 0
             for i in range(3):
                 if cmd & (1 << (4+i)):
-                    x = ord(delta[index])
+                    x = delta[index]
                     index += 1
                     cp_size |= x << (i * 8)
             if cp_size == 0:
@@ -1700,11 +1708,11 @@ def write_pack_index_v2(f, entries, pack_checksum):
     :return: The SHA of the index file written
     """
     f = SHA1Writer(f)
-    f.write('\377tOc') # Magic!
+    f.write(b'\377tOc') # Magic!
     f.write(struct.pack('>L', 2))
     fan_out_table = defaultdict(lambda: 0)
     for (name, offset, entry_checksum) in entries:
-        fan_out_table[ord(name[0])] += 1
+        fan_out_table[convert3kstr(name, BYTES)[0]] += 1
     # Fan-out table
     for i in range(0x100):
         f.write(struct.pack('>L', fan_out_table[i]))
@@ -1798,6 +1806,7 @@ class Pack(object):
         assert len(self.index) == len(self.data)
         idx_stored_checksum = self.index.get_pack_checksum()
         data_stored_checksum = self.data.get_stored_checksum()
+
         if idx_stored_checksum != data_stored_checksum:
             raise ChecksumMismatch(sha_to_hex(idx_stored_checksum),
                                    sha_to_hex(data_stored_checksum))
