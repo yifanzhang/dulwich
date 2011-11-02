@@ -12,6 +12,11 @@
 
   * Fix use --bare argument to 'dulwich init'. (Chris Eberle)
 
+ BUG FIXES
+
+  * Cope with different zlib buffer sizes in sha1 file parser.
+    (Jelmer Vernooij)
+
 0.8.1	2011-10-31
 
  FEATURES
