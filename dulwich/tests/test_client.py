@@ -148,7 +148,7 @@ class GitClientTests(TestCase):
         url = 'https://github.com/jelmer/dulwich'
         client, path = get_transport_and_path(url)
         self.assertTrue(isinstance(client, HttpGitClient))
-        self.assertEquals('/jelmer/dulwich', path)
+        self.assertEqual('/jelmer/dulwich', path)
 
 
 class SSHGitClientTests(TestCase):
