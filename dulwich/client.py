@@ -389,9 +389,18 @@ class GitClient(object):
         else:
             while True:
                 data = self.read(rbufsize)
-                if data == "":
+                if len(data) == 0:
                     break
                 pack_data(data)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, tb):
+        self.close()
+
+    def close(self):
+        raise NotImplementedError()
 
 
 class TraditionalGitClient(GitClient):
@@ -513,14 +522,19 @@ class TCPGitClient(TraditionalGitClient):
         proto.send_cmd(b'git-' + cmd, path, b'host=%s' + convert3kstr(self._host, BYTES))
         return proto, lambda: _fileno_can_read(s)
 
+    def close(self):
+        pass
 
 class SubprocessWrapper(object):
     """A socket-like object that talks to a subprocess via pipes."""
 
-    def __init__(self, proc):
+    def __init__(self, proc, close_stdin=True, close_stdout=True, close_stderr=False):
         self.proc = proc
         self.read = proc.stdout.read
         self.write = proc.stdin.write
+        self.close_stdin = close_stdin
+        self.close_stdout = close_stdout
+        self.close_stderr = close_stderr
 
     def can_read(self):
         if subprocess.mswindows:
@@ -532,8 +546,12 @@ class SubprocessWrapper(object):
             return _fileno_can_read(self.proc.stdout.fileno())
 
     def close(self):
-        self.proc.stdin.close()
-        self.proc.stdout.close()
+        if self.close_stdin:
+            self.proc.stdin.close()
+        if self.close_stdout:
+            self.proc.stdout.close()
+        if self.close_stderr:
+            self.proc.stderr.close()
         self.proc.wait()
 
 
@@ -553,6 +571,8 @@ class SubprocessGitClient(TraditionalGitClient):
         return Protocol(p.read, p.write, p.close,
                         report_activity=self._report_activity), p.can_read
 
+    def close(self):
+        pass
 
 class SSHVendor(object):
 
@@ -572,7 +592,6 @@ class SSHVendor(object):
 
 # Can be overridden by users
 get_ssh_vendor = SSHVendor
-
 
 class SSHGitClient(TraditionalGitClient):
 
@@ -594,6 +613,8 @@ class SSHGitClient(TraditionalGitClient):
                 report_activity=self._report_activity),
                 con.can_read)
 
+    def close(self):
+        pass
 
 class HttpGitClient(GitClient):
 
@@ -723,6 +744,9 @@ class HttpGitClient(GitClient):
                 self._handle_upload_pack_tail(resp_proto, negotiated_capabilities,
                     graph_walker, pack_data, progress)
         return refs
+
+    def close(self):
+        pass
 
 
 def get_transport_and_path(uri):
