@@ -41,7 +41,6 @@ from dulwich.errors import (
     ObjectFormatException,
     )
 from dulwich import log_utils
-from dulwich.sha1 import Sha1Sum
 from dulwich.pack import (
     write_pack_objects,
     )
@@ -62,6 +61,9 @@ from dulwich.protocol import (
 from dulwich.repo import (
     Repo,
     )
+from dulwich.objects import (
+    Sha1Sum
+)
 
 from dulwich.py3k import *
 
