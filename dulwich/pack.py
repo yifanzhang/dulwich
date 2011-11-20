@@ -763,12 +763,12 @@ class PackStreamReader(object):
             to_pop = max(n + tn - 20, 0)
             to_add = n
         for _ in range(to_pop):
-            self.sha.update(convert3kstr(self._trailer.popleft(), BYTES|AGGRESSIVE))
+            self.sha.update(bytes((self._trailer.popleft(),)))
 
         self._trailer.extend(data[-to_add:])
 
         # hash everything but the trailer
-        self.sha.update(convert3kstr(data[:-to_add], BYTES|AGGRESSIVE))
+        self.sha.update(data[:-to_add])
         return data
 
     def _buf_len(self):
@@ -900,9 +900,11 @@ class PackStreamCopier(PackStreamReader):
 def obj_sha(type, chunks):
     """Compute the SHA for a numeric type and object chunks."""
     sha = hashlib.sha1(b'')
-    sha.update(convert3kstr(object_header(type, chunks_length(chunks)), BYTES))
+    sha.update(object_header(type, chunks_length(chunks)).encode('utf-8'))
     for chunk in chunks:
-        sha.update(convert3kstr(chunk, BYTES|AGGRESSIVE))
+        if isinstance(chunk, int):
+            chunk = bytes((chunk,))
+        sha.update(chunk)
     return Sha1Sum(sha.digest())
 
 
