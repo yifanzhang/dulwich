@@ -65,8 +65,6 @@ from dulwich.objects import (
     Sha1Sum
 )
 
-from dulwich.py3k import *
-
 logger = log_utils.getLogger(__name__)
 
 def _force_bytes(text):
