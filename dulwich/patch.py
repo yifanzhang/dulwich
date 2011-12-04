@@ -78,8 +78,8 @@ def write_commit_patch(f, commit, contents, progress, version=None):
     except (ImportError, OSError) as e:
         pass # diffstat not available?
     else:
-        (diffstat, _) = p.communicate(contents)
-        write(diffstat)
+        (diffstat, _) = p.communicate(contents.encode('utf-8'))
+        write(diffstat.decode('utf-8'))
         write('\n')
     write(contents)
     write('-- \n')
