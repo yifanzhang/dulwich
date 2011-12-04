@@ -1,4 +1,4 @@
-PYTHON = python
+PYTHON = python3
 SETUP = $(PYTHON) setup.py
 PYDOCTOR ?= pydoctor
 ifeq ($(shell $(PYTHON) -c "import sys; print(sys.version_info[0:2] >= (3, 0))"),True)
