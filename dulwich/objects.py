@@ -1211,22 +1211,6 @@ class Tree(ShaFile):
         self._entries[name] = mode, sha
         self._needs_serialization = True
 
-    def entries(self):
-        """Return a list of tuples describing the tree entries.
-
-        :note: The order of the tuples that are returned is different from that
-            returned by the items and iteritems methods. This function will be
-            deprecated in the future.
-        """
-        warnings.warn("Tree.entries() is deprecated. Use Tree.items() or"
-            " Tree.iteritems() instead.", category=DeprecationWarning,
-            stacklevel=2)
-        self._ensure_parsed()
-        # The order of this is different from iteritems() for historical
-        # reasons
-        return [
-            (mode, name, hexsha) for (name, mode, hexsha) in self.items()]
-
     def iteritems(self, name_order=False):
         """Iterate over entries.
 

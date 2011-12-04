@@ -1440,7 +1440,7 @@ def write_pack_object(f, type, object, sha=None):
     return crc32 & 0xffffffff
 
 
-def write_pack(filename, objects, num_objects=None):
+def write_pack(filename, objects):
     """Write a new pack data file.
 
     :param filename: Path to the new pack file (without .pack extension)
@@ -1448,13 +1448,9 @@ def write_pack(filename, objects, num_objects=None):
         Should provide __len__
     :return: Tuple with checksum of pack file and index file
     """
-    if num_objects is not None:
-        warnings.warn('num_objects argument to write_pack is deprecated',
-                      DeprecationWarning)
     f = GitFile(filename + '.pack', 'wb')
     try:
-        entries, data_sum = write_pack_objects(f, objects,
-            num_objects=num_objects)
+        entries, data_sum = write_pack_objects(f, objects)
     finally:
         f.close()
     entries = [(k, v[0], v[1]) for (k, v) in entries.items()]

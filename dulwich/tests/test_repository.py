@@ -172,53 +172,6 @@ class RepositoryTests(TestCase):
         r = self._repo = open_repo('a.git')
         self.assertFalse(b"bar" in r)
 
-    def test_commit(self):
-        r = self._repo = open_repo('a.git')
-        warnings.simplefilter("ignore", DeprecationWarning)
-        self.addCleanup(warnings.resetwarnings)
-        obj = r.commit(r.head())
-        self.assertEqual(obj.type_name, 'commit')
-
-    def test_commit_not_commit(self):
-        r = self._repo = open_repo('a.git')
-        warnings.simplefilter("ignore", DeprecationWarning)
-        self.addCleanup(warnings.resetwarnings)
-        self.assertRaises(errors.NotCommitError,
-            r.commit, Sha1Sum('4f2e6529203aa6d44b5af6e3292c837ceda003f9'))
-
-    def test_tree(self):
-        r = self._repo = open_repo('a.git')
-        commit = r[r.head()]
-        warnings.simplefilter("ignore", DeprecationWarning)
-        self.addCleanup(warnings.resetwarnings)
-        tree = r.tree(commit.tree)
-        self.assertEqual(tree.type_name, 'tree')
-        self.assertEqual(Sha1Sum(tree.sha()), commit.tree)
-
-    def test_tree_not_tree(self):
-        r = self._repo = open_repo('a.git')
-        warnings.simplefilter("ignore", DeprecationWarning)
-        self.addCleanup(warnings.resetwarnings)
-        self.assertRaises(errors.NotTreeError, r.tree, r.head())
-
-    def test_tag(self):
-        r = self._repo = open_repo('a.git')
-        tag_sha = Sha1Sum('28237f4dc30d0d462658d6b937b08a0f0b6ef55a')
-        warnings.simplefilter("ignore", DeprecationWarning)
-        self.addCleanup(warnings.resetwarnings)
-        tag = r.tag(tag_sha)
-        self.assertEqual(tag.type_name, 'tag')
-        self.assertEqual(tag.sha().hexdigest(), tag_sha)
-        obj_class, obj_sha = tag.object
-        self.assertEqual(obj_class, objects.Commit)
-        self.assertEqual(obj_sha, r.head())
-
-    def test_tag_not_tag(self):
-        r = self._repo = open_repo('a.git')
-        warnings.simplefilter("ignore", DeprecationWarning)
-        self.addCleanup(warnings.resetwarnings)
-        self.assertRaises(errors.NotTagError, r.tag, r.head())
-
     def test_get_peeled(self):
         # unpacked ref
         r = self._repo = open_repo('a.git')
@@ -238,23 +191,6 @@ class RepositoryTests(TestCase):
         r = self._repo = open_repo('a.git')
         self.assertEqual(r.get_peeled(b'HEAD'), r.head())
 
-    def test_get_blob(self):
-        r = self._repo = open_repo('a.git')
-        commit = r[r.head()]
-        tree = r[commit.tree]
-        blob_sha = list(tree.items())[0][2]
-        warnings.simplefilter("ignore", DeprecationWarning)
-        self.addCleanup(warnings.resetwarnings)
-        blob = r.get_blob(blob_sha)
-        self.assertEqual(blob.type_name, 'blob')
-        self.assertEqual(Sha1Sum(blob.sha()), blob_sha)
-
-    def test_get_blob_notblob(self):
-        r = self._repo = open_repo('a.git')
-        warnings.simplefilter("ignore", DeprecationWarning)
-        self.addCleanup(warnings.resetwarnings)
-        self.assertRaises(errors.NotBlobError, r.get_blob, r.head())
-
     def test_get_walker(self):
         r = self._repo = open_repo('a.git')
         # include defaults to [r.head()]
@@ -263,15 +199,6 @@ class RepositoryTests(TestCase):
         self.assertEqual(
             [e.commit.id for e in r.get_walker([Sha1Sum('2a72d929692c41d8554c07f6301757ba18a65d91')])],
             [Sha1Sum('2a72d929692c41d8554c07f6301757ba18a65d91')])
-
-    def test_linear_history(self):
-        r = self._repo = open_repo('a.git')
-        warnings.simplefilter("ignore", DeprecationWarning)
-        self.addCleanup(warnings.resetwarnings)
-        history = r.revision_history(r.head())
-        shas = [Sha1Sum(c.sha()) for c in history]
-        self.assertEqual(shas, [r.head(),
-                                Sha1Sum('2a72d929692c41d8554c07f6301757ba18a65d91')])
 
     def test_clone(self):
         r = self._repo = open_repo('a.git')
@@ -299,13 +226,6 @@ class RepositoryTests(TestCase):
                                 Sha1Sum('4cffe90e0a41ad3f5190079d7c8f036bde29cbe6'),
                                 Sha1Sum('60dacdc733de308bb77bb76ce0fb0f9b44c9769e'),
                                 Sha1Sum('0d89f20333fbb1d2f3a94da77f4981373d8f4310')])
-
-    def test_revision_history_missing_commit(self):
-        r = self._repo = open_repo('simple_merge.git')
-        warnings.simplefilter("ignore", DeprecationWarning)
-        self.addCleanup(warnings.resetwarnings)
-        self.assertRaises(errors.MissingCommitError, r.revision_history,
-                          missing_sha)
 
     def test_out_of_order_merge(self):
         """Test that revision history is ordered by date, not parent order."""

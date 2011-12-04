@@ -114,12 +114,6 @@ def check_ref_format(refname):
 class RefsContainer(object):
     """A container for refs."""
 
-    def set_ref(self, name, other):
-        warnings.warn("RefsContainer.set_ref() is deprecated."
-            "Use set_symblic_ref instead.",
-            category=DeprecationWarning, stacklevel=2)
-        return self.set_symbolic_ref(name, other)
-
     def set_symbolic_ref(self, name, other):
         """Make a ref point at another ref.
 
@@ -888,54 +882,6 @@ class BaseRepo(object):
         return dict((section, dict(p.items(section)))
                     for section in p.sections())
 
-    def commit(self, sha):
-        """Retrieve the commit with a particular SHA.
-
-        :param sha: SHA of the commit to retrieve
-        :raise NotCommitError: If the SHA provided doesn't point at a Commit
-        :raise KeyError: If the SHA provided didn't exist
-        :return: A `Commit` object
-        """
-        warnings.warn("Repo.commit(sha) is deprecated. Use Repo[sha] instead.",
-            category=DeprecationWarning, stacklevel=2)
-        return self._get_object(sha, Commit)
-
-    def tree(self, sha):
-        """Retrieve the tree with a particular SHA.
-
-        :param sha: SHA of the tree to retrieve
-        :raise NotTreeError: If the SHA provided doesn't point at a Tree
-        :raise KeyError: If the SHA provided didn't exist
-        :return: A `Tree` object
-        """
-        warnings.warn("Repo.tree(sha) is deprecated. Use Repo[sha] instead.",
-            category=DeprecationWarning, stacklevel=2)
-        return self._get_object(sha, Tree)
-
-    def tag(self, sha):
-        """Retrieve the tag with a particular SHA.
-
-        :param sha: SHA of the tag to retrieve
-        :raise NotTagError: If the SHA provided doesn't point at a Tag
-        :raise KeyError: If the SHA provided didn't exist
-        :return: A `Tag` object
-        """
-        warnings.warn("Repo.tag(sha) is deprecated. Use Repo[sha] instead.",
-            category=DeprecationWarning, stacklevel=2)
-        return self._get_object(sha, Tag)
-
-    def get_blob(self, sha):
-        """Retrieve the blob with a particular SHA.
-
-        :param sha: SHA of the blob to retrieve
-        :raise NotBlobError: If the SHA provided doesn't point at a Blob
-        :raise KeyError: If the SHA provided didn't exist
-        :return: A `Blob` object
-        """
-        warnings.warn("Repo.get_blob(sha) is deprecated. Use Repo[sha] "
-            "instead.", category=DeprecationWarning, stacklevel=2)
-        return self._get_object(sha, Blob)
-
     def get_peeled(self, ref):
         """Get the peeled value of a ref.
 
@@ -977,20 +923,6 @@ class BaseRepo(object):
         if include is None:
             include = [self.head()]
         return Walker(self.object_store, include, *args, **kwargs)
-
-    def revision_history(self, head):
-        """Returns a list of the commits reachable from head.
-
-        :param head: The SHA of the head to list revision history for.
-        :return: A list of commit objects reachable from head, starting with
-            head itself, in descending commit time order.
-        :raise MissingCommitError: if any missing commits are referenced,
-            including if the head parameter isn't the SHA of a commit.
-        """
-        warnings.warn("Repo.revision_history() is deprecated."
-            "Use dulwich.walker.Walker(repo) instead.",
-            category=DeprecationWarning, stacklevel=2)
-        return [e.commit for e in self.get_walker(include=[head])]
 
     def __getitem__(self, name):
         if isinstance(name, Sha1Sum):
