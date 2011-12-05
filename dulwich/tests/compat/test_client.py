@@ -20,7 +20,6 @@
 """Compatibilty tests between the Dulwich client and the cgit server."""
 
 import http.server
-import http.server
 import copy
 import os
 import select
@@ -279,7 +278,8 @@ class DulwichSubprocessClientTest(CompatTestCase, DulwichClientTestBase):
         CompatTestCase.tearDown(self)
 
     def _client(self):
-        return client.SubprocessGitClient()
+        return client.SubprocessGitClient(stderr=subprocess.PIPE,
+            close_stderr=True)
 
     def _build_path(self, path):
         return self.gitroot + path

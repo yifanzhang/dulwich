@@ -519,6 +519,7 @@ class TCPGitClient(TraditionalGitClient):
     def close(self):
         pass
 
+
 class SubprocessWrapper(object):
     """A socket-like object that talks to a subprocess via pipes."""
 
@@ -554,6 +555,13 @@ class SubprocessGitClient(TraditionalGitClient):
 
     def __init__(self, *args, **kwargs):
         self._connection = None
+        self._stderr = kwargs.get('stderr')
+        if 'stderr' in kwargs:
+            del kwargs['stderr']
+        try:
+            self._close_stderr = kwargs.pop('close_stderr')
+        except KeyError:
+            self._close_stderr = False
         GitClient.__init__(self, *args, **kwargs)
 
     def _connect(self, service, path):
@@ -561,12 +569,15 @@ class SubprocessGitClient(TraditionalGitClient):
         argv = ['git', service, path]
         p = SubprocessWrapper(
             subprocess.Popen(argv, bufsize=0, stdin=subprocess.PIPE,
-                             stdout=subprocess.PIPE))
+                             stdout=subprocess.PIPE,
+                             stderr=self._stderr),
+            close_stderr=self._close_stderr)
         return Protocol(p.read, p.write, p.close,
                         report_activity=self._report_activity), p.can_read
 
     def close(self):
         pass
+
 
 class SSHVendor(object):
 
@@ -583,6 +594,7 @@ class SSHVendor(object):
                                 stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE)
         return SubprocessWrapper(proc)
+
 
 # Can be overridden by users
 get_ssh_vendor = SSHVendor
@@ -609,6 +621,7 @@ class SSHGitClient(TraditionalGitClient):
 
     def close(self):
         pass
+
 
 class HttpGitClient(GitClient):
 
