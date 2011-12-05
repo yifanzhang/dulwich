@@ -6,3 +6,4 @@ apidocs
 *,cover
 .testrepository
 docs/tutorial/index.html
+__pycache__
