@@ -138,12 +138,12 @@ def check_identity(identity, error_msg):
     :param identity: Identity string
     :param error_msg: Error message to use in exception
     """
-    email_start = identity.find("<")
-    email_end = identity.find(">")
+    email_start = identity.find(b"<")
+    email_end = identity.find(b">")
     if (email_start < 0 or email_end < 0 or email_end <= email_start
-        or identity.find("<", email_start + 1) >= 0
-        or identity.find(">", email_end + 1) >= 0
-        or not identity.endswith(">")):
+        or identity.find(b"<", email_start + 1) >= 0
+        or identity.find(b">", email_end + 1) >= 0
+        or not identity.endswith(b">")):
         raise ObjectFormatException(error_msg)
 
 
@@ -959,15 +959,15 @@ class Tag(ShaFile):
         chunks.append(_TYPE_HEADER + b' ' +
                       self._object_class.type_name + b'\n')
         chunks.append(_TAG_HEADER + b' ' +
-                      self._name.encode('utf-8') + b'\n')
+                      self._name + b'\n')
         if self._tagger:
             if self._tag_time is None:
                 chunks.append(_TAGGER_HEADER + b' ' +
-                              self._tagger.encode('utf-8') + b'\n')
+                              self._tagger + b'\n')
             else:
                 chunks.append(_TAGGER_HEADER + b' ' +
-                              self._tagger.encode('utf-8') + b' ' +
-                              str(self._tag_time).encode('utf-8') + b' ' +
+                              self._tagger + b' ' +
+                              str(self._tag_time).encode('ascii') + b' ' +
                               format_timezone(self._tag_timezone, self._tag_timezone_neg_utc) + b'\n')
 
         chunks.append(b'\n') # To close headers
@@ -986,11 +986,11 @@ class Tag(ShaFile):
                     raise ObjectFormatException("Not a known type: %s" % value.decode('utf-8'))
                 self._object_class = obj_class
             elif field == _TAG_HEADER:
-                self._name = value.decode('utf-8')
+                self._name = value
             elif field == _TAGGER_HEADER:
-                value = value.decode('utf-8')
+                value = value
                 try:
-                    sep = value.index('> ')
+                    sep = value.index(b'> ')
                 except ValueError:
                     self._tagger = value
                     self._tag_time = None
@@ -999,7 +999,7 @@ class Tag(ShaFile):
                 else:
                     self._tagger = value[0:sep+1]
                     try:
-                        (timetext, timezonetext) = value[sep+2:].rsplit(" ", 1)
+                        (timetext, timezonetext) = value[sep+2:].rsplit(b" ", 1)
                         self._tag_time = int(timetext)
                         self._tag_timezone, self._tag_timezone_neg_utc = \
                                 parse_timezone(timezonetext)
@@ -1080,7 +1080,7 @@ def serialize_tree(items):
     :return: Serialized tree text as chunks
     """
     for name, mode, sha in items:
-        yield ("%04o " % mode).encode('utf-8') + name + b'\0' + bytes(sha)
+        yield ("%04o " % mode).encode('ascii') + name + b'\0' + bytes(sha)
 
 
 def cmp_to_key(mycmp):
@@ -1301,7 +1301,7 @@ def parse_timezone(text):
         prefixed with a negative sign (-0000).
     """
     if isinstance(text, bytes):
-        text = text.decode('utf-8')
+        text = text.decode('ascii')
     offset = int(text)
     negative_utc = (offset == 0 and text[0] == '-')
     signum = (offset < 0) and -1 or 1
@@ -1370,17 +1370,17 @@ class Commit(ShaFile):
             elif field == _PARENT_HEADER:
                 self._parents.append(Sha1Sum(value))
             elif field == _AUTHOR_HEADER:
-                self._author, timetext, timezonetext = value.decode('utf-8').rsplit(" ", 2)
+                self._author, timetext, timezonetext = value.rsplit(b" ", 2)
                 self._author_time = int(timetext)
                 self._author_timezone, self._author_timezone_neg_utc =\
                     parse_timezone(timezonetext)
             elif field == _COMMITTER_HEADER:
-                self._committer, timetext, timezonetext = value.decode('utf-8').rsplit(" ", 2)
+                self._committer, timetext, timezonetext = value.rsplit(b" ", 2)
                 self._commit_time = int(timetext)
                 self._commit_timezone, self._commit_timezone_neg_utc =\
                     parse_timezone(timezonetext)
             elif field == _ENCODING_HEADER:
-                self._encoding = value.decode('utf-8')
+                self._encoding = value
             elif field is None:
                 self._message = value
             else:
@@ -1428,16 +1428,16 @@ class Commit(ShaFile):
         for p in self._parents:
             chunks.append(_PARENT_HEADER + b' ' + p.hex_bytes + b'\n')
         chunks.append(_AUTHOR_HEADER + b' ' +
-                      self._author.encode('utf-8') + b' ' +
-                      str(self._author_time).encode('utf-8') + b' ' +
+                      self._author + b' ' +
+                      str(self._author_time).encode('ascii') + b' ' +
                       format_timezone(self._author_timezone, self._author_timezone_neg_utc) + b'\n')
         chunks.append(_COMMITTER_HEADER + b' ' +
-                      self._committer.encode('utf-8') + b' ' +
-                      str(self._commit_time).encode('utf-8') + b' ' +
+                      self._committer + b' ' +
+                      str(self._commit_time).encode('ascii') + b' ' +
                       format_timezone(self._commit_timezone, self._commit_timezone_neg_utc) + b'\n')
         if self.encoding:
             chunks.append(_ENCODING_HEADER + b' ' + 
-                          self.encoding.encode('utf-8') + b'\n')
+                          self.encoding + b'\n')
         for k, v in self.extra:
             if b'\n' in k or b'\n' in v:
                 raise AssertionError("newline in extra data: %r -> %r" % (k, v))

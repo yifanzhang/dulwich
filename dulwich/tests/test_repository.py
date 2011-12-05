@@ -314,8 +314,8 @@ class BuildRepoTests(TestCase):
             f.write(b'file contents')
         r.stage(['a'])
         commit_sha = r.do_commit(b'msg',
-                                 committer='Test Committer <test@nodomain.com>',
-                                 author='Test Author <test@nodomain.com>',
+                                 committer=b'Test Committer <test@nodomain.com>',
+                                 author=b'Test Author <test@nodomain.com>',
                                  commit_timestamp=12345, commit_timezone=0,
                                  author_timestamp=12345, author_timezone=0)
         self.assertEqual([], r[commit_sha].parents)
@@ -340,8 +340,8 @@ class BuildRepoTests(TestCase):
             f.write(b'new contents')
         r.stage(['a'])
         commit_sha = r.do_commit(b'modified a',
-                                 committer='Test Committer <test@nodomain.com>',
-                                 author='Test Author <test@nodomain.com>',
+                                 committer=b'Test Committer <test@nodomain.com>',
+                                 author=b'Test Author <test@nodomain.com>',
                                  commit_timestamp=12395, commit_timezone=0,
                                  author_timestamp=12395, author_timezone=0)
         self.assertEqual([self._root_commit], r[commit_sha].parents)
@@ -353,8 +353,8 @@ class BuildRepoTests(TestCase):
         os.remove(os.path.join(r.path, 'a'))
         r.stage(['a'])
         commit_sha = r.do_commit(b'deleted a',
-                                 committer='Test Committer <test@nodomain.com>',
-                                 author='Test Author <test@nodomain.com>',
+                                 committer=b'Test Committer <test@nodomain.com>',
+                                 author=b'Test Author <test@nodomain.com>',
                                  commit_timestamp=12395, commit_timezone=0,
                                  author_timestamp=12395, author_timezone=0)
         self.assertEqual([self._root_commit], r[commit_sha].parents)
@@ -365,12 +365,12 @@ class BuildRepoTests(TestCase):
     def test_commit_encoding(self):
         r = self._repo
         commit_sha = r.do_commit(b'commit with strange character \xee',
-             committer='Test Committer <test@nodomain.com>',
-             author='Test Author <test@nodomain.com>',
+             committer=b'Test Committer <test@nodomain.com>',
+             author=b'Test Author <test@nodomain.com>',
              commit_timestamp=12395, commit_timezone=0,
              author_timestamp=12395, author_timezone=0,
-             encoding="iso8859-1")
-        self.assertEqual("iso8859-1", r[commit_sha].encoding)
+             encoding=b"iso8859-1")
+        self.assertEqual(b"iso8859-1", r[commit_sha].encoding)
 
     def test_commit_fail_ref(self):
         r = self._repo
@@ -385,8 +385,8 @@ class BuildRepoTests(TestCase):
 
         old_shas = set(r.object_store)
         self.assertRaises(errors.CommitError, r.do_commit, b'failed commit',
-                          committer='Test Committer <test@nodomain.com>',
-                          author='Test Author <test@nodomain.com>',
+                          committer=b'Test Committer <test@nodomain.com>',
+                          author=b'Test Author <test@nodomain.com>',
                           commit_timestamp=12345, commit_timezone=0,
                           author_timestamp=12345, author_timezone=0)
         new_shas = set(r.object_store) - old_shas
@@ -400,8 +400,8 @@ class BuildRepoTests(TestCase):
         r = self._repo
 
         commit_sha = r.do_commit(b'commit to branch',
-             committer='Test Committer <test@nodomain.com>',
-             author='Test Author <test@nodomain.com>',
+             committer=b'Test Committer <test@nodomain.com>',
+             author=b'Test Author <test@nodomain.com>',
              commit_timestamp=12395, commit_timezone=0,
              author_timestamp=12395, author_timezone=0,
              ref=b"refs/heads/new_branch")
@@ -413,8 +413,8 @@ class BuildRepoTests(TestCase):
         new_branch_head = commit_sha
 
         commit_sha = r.do_commit(b'commit to branch 2',
-             committer='Test Committer <test@nodomain.com>',
-             author='Test Author <test@nodomain.com>',
+             committer=b'Test Committer <test@nodomain.com>',
+             author=b'Test Author <test@nodomain.com>',
              commit_timestamp=12395, commit_timezone=0,
              author_timestamp=12395, author_timezone=0,
              ref=b"refs/heads/new_branch")
@@ -425,14 +425,14 @@ class BuildRepoTests(TestCase):
     def test_commit_merge_heads(self):
         r = self._repo
         merge_1 = r.do_commit(b'commit to branch 2',
-             committer='Test Committer <test@nodomain.com>',
-             author='Test Author <test@nodomain.com>',
+             committer=b'Test Committer <test@nodomain.com>',
+             author=b'Test Author <test@nodomain.com>',
              commit_timestamp=12395, commit_timezone=0,
              author_timestamp=12395, author_timezone=0,
              ref=b"refs/heads/new_branch")
         commit_sha = r.do_commit(b'commit with merge',
-             committer='Test Committer <test@nodomain.com>',
-             author='Test Author <test@nodomain.com>',
+             committer=b'Test Committer <test@nodomain.com>',
+             author=b'Test Author <test@nodomain.com>',
              commit_timestamp=12395, commit_timezone=0,
              author_timestamp=12395, author_timezone=0,
              merge_heads=[merge_1])

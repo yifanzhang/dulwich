@@ -39,12 +39,12 @@ job of the commit::
   >>> from time import time
   >>> commit = Commit()
   >>> commit.tree = tree.id
-  >>> author = "Your Name <your.email@example.com>"
+  >>> author = b"Your Name <your.email@example.com>"
   >>> commit.author = commit.committer = author
   >>> commit.commit_time = commit.author_time = int(time())
   >>> tz = parse_timezone('-0200')[0]
   >>> commit.commit_timezone = commit.author_timezone = tz
-  >>> commit.encoding = "UTF-8"
+  >>> commit.encoding = b"UTF-8"
   >>> commit.message = b"Initial commit"
 
 Note that the initial commit has no parents.
@@ -144,10 +144,10 @@ Now let's record the change::
   >>> c2 = Commit()
   >>> c2.tree = tree.id
   >>> c2.parents = [commit.id]
-  >>> c2.author = c2.committer = "John Doe <john@example.com>"
+  >>> c2.author = c2.committer = b"John Doe <john@example.com>"
   >>> c2.commit_time = c2.author_time = int(time())
   >>> c2.commit_timezone = c2.author_timezone = 0
-  >>> c2.encoding = "UTF-8"
+  >>> c2.encoding = b"UTF-8"
   >>> c2.message = b'Changing "spam"'
 
 In this new commit we record the changed tree id, and most important, the

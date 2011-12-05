@@ -115,10 +115,10 @@ def make_commit(**attrs):
     :return: A newly initialized Commit object.
     """
     default_time = int(time.mktime(datetime.datetime(2010, 1, 1).timetuple()))
-    all_attrs = {'author': 'Test Author <test@nodomain.com>',
+    all_attrs = {'author': b'Test Author <test@nodomain.com>',
                  'author_time': default_time,
                  'author_timezone': 0,
-                 'committer': 'Test Committer <test@nodomain.com>',
+                 'committer': b'Test Committer <test@nodomain.com>',
                  'commit_time': default_time,
                  'commit_timezone': 0,
                  'message': b'Test message.',

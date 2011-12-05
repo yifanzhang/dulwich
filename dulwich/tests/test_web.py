@@ -224,8 +224,8 @@ class DumbHandlersTestCase(WebTestCase):
         blob2 = make_object(Blob, data=b'2')
         blob3 = make_object(Blob, data=b'3')
 
-        tag1 = make_object(Tag, name='tag-tag',
-                           tagger='Test <test@example.com>',
+        tag1 = make_object(Tag, name=b'tag-tag',
+                           tagger=b'Test <test@example.com>',
                            tag_time=12345,
                            tag_timezone=0,
                            message=b'message',

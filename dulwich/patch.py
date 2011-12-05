@@ -65,7 +65,7 @@ def write_commit_patch(f, commit, contents, progress, version=None):
     write = _make_writer(f)
 
     write('From ' + str(commit.id) + ' ' + time.ctime(commit.commit_time) + '\n')
-    write('From: ' + commit.author + '\n')
+    write('From: ' + commit.author.decode('utf-8') + '\n')
     write('Date: ' + time.strftime("%a, %d %b %Y %H:%M:%S %Z") + '\n')
     write('Subject: [PATCH ' + str(num) + '/' + str(total) + '] ' + commit.message.decode('utf-8') + '\n')
     write('\n')
@@ -265,8 +265,8 @@ def git_am_patch_split(f):
     msg = parser.parse(f)
 
     c = Commit()
-    c.author = msg["from"]
-    c.committer = msg["from"]
+    c.author = msg["from"].encode('utf-8')
+    c.committer = msg["from"].encode('utf-8')
 
     try:
         patch_tag_start = msg["subject"].index("[PATCH")
@@ -285,7 +285,7 @@ def git_am_patch_split(f):
             break
         if first:
             if l.startswith("From: "):
-                c.author = l[len("From: "):].rstrip()
+                c.author = l[len("From: "):].rstrip().encode('utf-8')
             else:
                 c.message += b"\n" + l.encode('utf-8')
             first = False

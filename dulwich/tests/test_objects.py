@@ -156,8 +156,8 @@ class BlobReadTests(TestCase):
     def test_read_tag_from_file(self):
         t = self.get_tag(tag_sha)
         self.assertEqual(t.object, (Commit, Sha1Sum('51b668fd5bf7061b7d6fa525f88803e6cfadaa51')))
-        self.assertEqual(t.name,'signed')
-        self.assertEqual(t.tagger,'Ali Sabil <ali.sabil@gmail.com>')
+        self.assertEqual(t.name, b'signed')
+        self.assertEqual(t.tagger, b'Ali Sabil <ali.sabil@gmail.com>')
         self.assertEqual(t.tag_time, 1231203091)
         self.assertEqual(t.message, b'This is a signed tag\n-----BEGIN PGP SIGNATURE-----\nVersion: GnuPG v1.4.9 (GNU/Linux)\n\niEYEABECAAYFAkliqx8ACgkQqSMmLy9u/kcx5ACfakZ9NnPl02tOyYP6pkBoEkU1\n5EcAn0UFgokaSvS371Ym/4W9iJj6vh3h\n=ql7y\n-----END PGP SIGNATURE-----\n')
 
@@ -168,9 +168,9 @@ class BlobReadTests(TestCase):
         self.assertEqual(c.parents,
             [Sha1Sum('0d89f20333fbb1d2f3a94da77f4981373d8f4310')])
         self.assertEqual(c.author,
-            'James Westby <jw+debian@jameswestby.net>')
+            b'James Westby <jw+debian@jameswestby.net>')
         self.assertEqual(c.committer,
-            'James Westby <jw+debian@jameswestby.net>')
+            b'James Westby <jw+debian@jameswestby.net>')
         self.assertEqual(c.commit_time, 1174759230)
         self.assertEqual(c.commit_timezone, 0)
         self.assertEqual(c.author_timezone, 0)
@@ -182,9 +182,9 @@ class BlobReadTests(TestCase):
         self.assertEqual(c.tree, Sha1Sum('90182552c4a85a45ec2a835cadc3451bebdfe870'))
         self.assertEqual(c.parents, [])
         self.assertEqual(c.author,
-            'James Westby <jw+debian@jameswestby.net>')
+            b'James Westby <jw+debian@jameswestby.net>')
         self.assertEqual(c.committer,
-            'James Westby <jw+debian@jameswestby.net>')
+            b'James Westby <jw+debian@jameswestby.net>')
         self.assertEqual(c.commit_time, 1174758034)
         self.assertEqual(c.commit_timezone, 0)
         self.assertEqual(c.author_timezone, 0)
@@ -197,9 +197,9 @@ class BlobReadTests(TestCase):
         self.assertEqual(c.parents, [Sha1Sum('ab64bbdcc51b170d21588e5c5d391ee5c0c96dfd'),
                                      Sha1Sum('4cffe90e0a41ad3f5190079d7c8f036bde29cbe6')])
         self.assertEqual(c.author,
-            'James Westby <jw+debian@jameswestby.net>')
+            b'James Westby <jw+debian@jameswestby.net>')
         self.assertEqual(c.committer,
-            'James Westby <jw+debian@jameswestby.net>')
+            b'James Westby <jw+debian@jameswestby.net>')
         self.assertEqual(c.commit_time, 1174773719)
         self.assertEqual(c.commit_timezone, 0)
         self.assertEqual(c.author_timezone, 0)
@@ -250,7 +250,7 @@ class ShaFileTests(TestCase):
         # See https://github.com/libgit2/libgit2/pull/464
         sf = ShaFile.from_file(BytesIO(small_buffer_zlib_object))
         self.assertEqual(sf.type_name, b"tag")
-        self.assertEqual(sf.tagger, " <@localhost>")
+        self.assertEqual(sf.tagger, b" <@localhost>")
 
 
 class CommitSerializationTests(TestCase):
@@ -259,8 +259,8 @@ class CommitSerializationTests(TestCase):
         attrs = {'tree': Sha1Sum('d80c186a03f423a81b39df39dc87fd269736ca86'),
                  'parents': [Sha1Sum('ab64bbdcc51b170d21588e5c5d391ee5c0c96dfd'),
                              Sha1Sum('4cffe90e0a41ad3f5190079d7c8f036bde29cbe6')],
-                 'author': 'James Westby <jw+debian@jameswestby.net>',
-                 'committer': 'James Westby <jw+debian@jameswestby.net>',
+                 'author': b'James Westby <jw+debian@jameswestby.net>',
+                 'committer': b'James Westby <jw+debian@jameswestby.net>',
                  'commit_time': 1174773719,
                  'author_time': 1174773719,
                  'commit_timezone': 0,
@@ -270,7 +270,7 @@ class CommitSerializationTests(TestCase):
         return make_commit(**attrs)
 
     def test_encoding(self):
-        c = self.make_commit(encoding='iso8859-1')
+        c = self.make_commit(encoding=b'iso8859-1')
         self.assertTrue(b'encoding iso8859-1\n' in c.as_raw_string())
 
     def test_short_timestamp(self):
@@ -306,7 +306,7 @@ class CommitSerializationTests(TestCase):
         self.assertTrue(b" -0100\n" in c.as_raw_string())
 
 
-default_committer = 'James Westby <jw+debian@jameswestby.net> 1174773719 +0000'
+default_committer = b'James Westby <jw+debian@jameswestby.net> 1174773719 +0000'
 
 class CommitParseTests(ShaFileCheckTests):
 
@@ -329,11 +329,11 @@ class CommitParseTests(ShaFileCheckTests):
                 self.assertTrue(isinstance(p, Sha1Sum))
             lines.extend(b'parent ' + p.hex_bytes for p in parents)
         if author is not None:
-            lines.append(b'author ' + author.encode('utf-8'))
+            lines.append(b'author ' + author)
         if committer is not None:
-            lines.append(b'committer ' + committer.encode('utf-8'))
+            lines.append(b'committer ' + committer)
         if encoding is not None:
-            lines.append(b'encoding ' + encoding.encode('utf-8'))
+            lines.append(b'encoding ' + encoding)
         if extra is not None:
             for name, value in sorted(extra.items()):
                 if isinstance(name, str):
@@ -352,8 +352,8 @@ class CommitParseTests(ShaFileCheckTests):
     def test_simple(self):
         c = Commit.from_string(self.make_commit_text())
         self.assertEqual(b'Merge ../b\n', c.message)
-        self.assertEqual('James Westby <jw+debian@jameswestby.net>', c.author)
-        self.assertEqual('James Westby <jw+debian@jameswestby.net>',
+        self.assertEqual(b'James Westby <jw+debian@jameswestby.net>', c.author)
+        self.assertEqual(b'James Westby <jw+debian@jameswestby.net>',
                           c.committer)
         self.assertEqual(b'd80c186a03f423a81b39df39dc87fd269736ca86', c.tree)
         self.assertEqual([b'ab64bbdcc51b170d21588e5c5d391ee5c0c96dfd',
@@ -374,16 +374,16 @@ class CommitParseTests(ShaFileCheckTests):
         self.assertEqual([(b'extra-field', b'data')], c.extra)
 
     def test_encoding(self):
-        c = Commit.from_string(self.make_commit_text(encoding='UTF-8'))
-        self.assertEqual('UTF-8', c.encoding)
+        c = Commit.from_string(self.make_commit_text(encoding=b'UTF-8'))
+        self.assertEqual(b'UTF-8', c.encoding)
 
     def test_check(self):
         self.assertCheckSucceeds(Commit, self.make_commit_text())
         self.assertCheckSucceeds(Commit, self.make_commit_text(parents=None))
         self.assertCheckSucceeds(Commit,
-                                 self.make_commit_text(encoding='UTF-8'))
+                                 self.make_commit_text(encoding=b'UTF-8'))
 
-        bad_committer = "some guy without an email address 1174773719 +0000"
+        bad_committer = b"some guy without an email address 1174773719 +0000"
         self.assertCheckFails(Commit,
                               self.make_commit_text(committer=bad_committer))
         self.assertCheckFails(Commit,
@@ -396,7 +396,7 @@ class CommitParseTests(ShaFileCheckTests):
     def test_check_duplicates(self):
         # duplicate each of the header fields
         for i in range(5):
-            lines = self.make_commit_lines(parents=[a_sha], encoding='UTF-8')
+            lines = self.make_commit_lines(parents=[a_sha], encoding=b'UTF-8')
             lines.insert(i, lines[i])
             text = b'\n'.join(lines)
             if lines[i].startswith(b'parent'):
@@ -406,7 +406,7 @@ class CommitParseTests(ShaFileCheckTests):
                 self.assertCheckFails(Commit, text)
 
     def test_check_order(self):
-        lines = self.make_commit_lines(parents=[a_sha], encoding='UTF-8')
+        lines = self.make_commit_lines(parents=[a_sha], encoding=b'UTF-8')
         headers = lines[:5]
         rest = lines[5:]
         # of all possible permutations, ensure only the original succeeds
@@ -568,8 +568,8 @@ class TagSerializeTests(TestCase):
 
     def test_serialize_simple(self):
         x = make_object(Tag,
-                        tagger='Jelmer Vernooij <jelmer@samba.org>',
-                        name='0.1',
+                        tagger=b'Jelmer Vernooij <jelmer@samba.org>',
+                        name=b'0.1',
                         message=b'Tag 0.1',
                         object=(Blob, Sha1Sum('d80c186a03f423a81b39df39dc87fd269736ca86')),
                         tag_time=423423423,
@@ -583,8 +583,8 @@ class TagSerializeTests(TestCase):
                            b'Tag 0.1'), x.as_raw_string())
 
 
-default_tagger = ('Linus Torvalds <torvalds@woody.linux-foundation.org> '
-                  '1183319674 -0700')
+default_tagger = (b'Linus Torvalds <torvalds@woody.linux-foundation.org> '
+                  b'1183319674 -0700')
 default_message = b"""Linux 2.6.22-rc7
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.7 (GNU/Linux)
@@ -600,19 +600,19 @@ class TagParseTests(ShaFileCheckTests):
 
     def make_tag_lines(self,
                        object_sha=Sha1Sum("a38d6181ff27824c79fc7df825164a212eff6a3f"),
-                       object_type_name="commit",
-                       name="v2.6.22-rc7",
+                       object_type_name=b"commit",
+                       name=b"v2.6.22-rc7",
                        tagger=default_tagger,
                        message=default_message):
         lines = []
         if object_sha is not None:
             lines.append(b'object ' + bytes(object_sha))
         if object_type_name is not None:
-            lines.append(b'type ' + object_type_name.encode('utf-8'))
+            lines.append(b'type ' + object_type_name)
         if name is not None:
-            lines.append(b'tag ' + name.encode('utf-8'))
+            lines.append(b'tag ' + name)
         if tagger is not None:
-            lines.append(b'tagger ' + tagger.encode('utf-8'))
+            lines.append(b'tagger ' + tagger)
         lines.append(b'')
         if message is not None:
             lines.append(message)
@@ -625,8 +625,8 @@ class TagParseTests(ShaFileCheckTests):
         x = Tag()
         x.set_raw_string(self.make_tag_text())
         self.assertEqual(
-            "Linus Torvalds <torvalds@woody.linux-foundation.org>", x.tagger)
-        self.assertEqual('v2.6.22-rc7', x.name)
+            b"Linus Torvalds <torvalds@woody.linux-foundation.org>", x.tagger)
+        self.assertEqual(b'v2.6.22-rc7', x.name)
         object_type, object_sha = x.object
         self.assertEqual(Sha1Sum("a38d6181ff27824c79fc7df825164a212eff6a3f"),
                          object_sha)
@@ -639,21 +639,21 @@ class TagParseTests(ShaFileCheckTests):
         x = Tag()
         x.set_raw_string(self.make_tag_text(tagger=None))
         self.assertEqual(None, x.tagger)
-        self.assertEqual('v2.6.22-rc7', x.name)
+        self.assertEqual(b'v2.6.22-rc7', x.name)
 
     def test_check(self):
         self.assertCheckSucceeds(Tag, self.make_tag_text())
         self.assertCheckFails(Tag, self.make_tag_text(object_sha=None))
         self.assertCheckFails(Tag, self.make_tag_text(object_type_name=None))
         self.assertCheckFails(Tag, self.make_tag_text(name=None))
-        self.assertCheckFails(Tag, self.make_tag_text(name=''))
+        self.assertCheckFails(Tag, self.make_tag_text(name=b''))
         self.assertCheckFails(Tag, self.make_tag_text(
-          object_type_name="foobar"))
+          object_type_name=b"foobar"))
         self.assertCheckFails(Tag, self.make_tag_text(
-          tagger="some guy without an email address 1183319674 -0700"))
+          tagger=b"some guy without an email address 1183319674 -0700"))
         self.assertCheckFails(Tag, self.make_tag_text(
-          tagger=("Linus Torvalds <torvalds@woody.linux-foundation.org> "
-                  "Sun 7 Jul 2007 12:54:34 +0700")))
+          tagger=(b"Linus Torvalds <torvalds@woody.linux-foundation.org> "
+                  b"Sun 7 Jul 2007 12:54:34 +0700")))
         self.assertCheckFails(Tag, self.make_tag_text(object_sha=b"xxx"))
 
     def test_check_duplicates(self):
@@ -689,23 +689,23 @@ class CheckTests(TestCase):
                           'invalid characters')
 
     def test_check_identity(self):
-        check_identity("Dave Borowitz <dborowitz@google.com>",
-                       "failed to check good identity")
-        check_identity("<dborowitz@google.com>",
-                       "failed to check good identity")
+        check_identity(b"Dave Borowitz <dborowitz@google.com>",
+                       b"failed to check good identity")
+        check_identity(b"<dborowitz@google.com>",
+                       b"failed to check good identity")
         self.assertRaises(ObjectFormatException, check_identity,
-                          "Dave Borowitz", "no email")
+                          b"Dave Borowitz", b"no email")
         self.assertRaises(ObjectFormatException, check_identity,
-                          "Dave Borowitz <dborowitz", "incomplete email")
+                          b"Dave Borowitz <dborowitz", b"incomplete email")
         self.assertRaises(ObjectFormatException, check_identity,
-                          "dborowitz@google.com>", "incomplete email")
+                          b"dborowitz@google.com>", b"incomplete email")
         self.assertRaises(ObjectFormatException, check_identity,
-                          "Dave Borowitz <<dborowitz@google.com>", "typo")
+                          b"Dave Borowitz <<dborowitz@google.com>", b"typo")
         self.assertRaises(ObjectFormatException, check_identity,
-                          "Dave Borowitz <dborowitz@google.com>>", "typo")
+                          b"Dave Borowitz <dborowitz@google.com>>", b"typo")
         self.assertRaises(ObjectFormatException, check_identity,
-                          "Dave Borowitz <dborowitz@google.com>xxx",
-                          "trailing characters")
+                          b"Dave Borowitz <dborowitz@google.com>xxx",
+                          b"trailing characters")
 
 
 class TimezoneTests(TestCase):
