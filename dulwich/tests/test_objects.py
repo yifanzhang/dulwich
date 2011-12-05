@@ -26,7 +26,6 @@ from io import BytesIO
 import datetime
 import os
 import stat
-import warnings
 import binascii
 import hashlib
 
@@ -160,7 +159,7 @@ class BlobReadTests(TestCase):
         self.assertEqual(t.name,'signed')
         self.assertEqual(t.tagger,'Ali Sabil <ali.sabil@gmail.com>')
         self.assertEqual(t.tag_time, 1231203091)
-        self.assertEqual(t.message, 'This is a signed tag\n-----BEGIN PGP SIGNATURE-----\nVersion: GnuPG v1.4.9 (GNU/Linux)\n\niEYEABECAAYFAkliqx8ACgkQqSMmLy9u/kcx5ACfakZ9NnPl02tOyYP6pkBoEkU1\n5EcAn0UFgokaSvS371Ym/4W9iJj6vh3h\n=ql7y\n-----END PGP SIGNATURE-----\n')
+        self.assertEqual(t.message, b'This is a signed tag\n-----BEGIN PGP SIGNATURE-----\nVersion: GnuPG v1.4.9 (GNU/Linux)\n\niEYEABECAAYFAkliqx8ACgkQqSMmLy9u/kcx5ACfakZ9NnPl02tOyYP6pkBoEkU1\n5EcAn0UFgokaSvS371Ym/4W9iJj6vh3h\n=ql7y\n-----END PGP SIGNATURE-----\n')
 
     def test_read_commit_from_file(self):
         sha = Sha1Sum('60dacdc733de308bb77bb76ce0fb0f9b44c9769e')
@@ -175,7 +174,7 @@ class BlobReadTests(TestCase):
         self.assertEqual(c.commit_time, 1174759230)
         self.assertEqual(c.commit_timezone, 0)
         self.assertEqual(c.author_timezone, 0)
-        self.assertEqual(c.message, 'Test commit\n')
+        self.assertEqual(c.message, b'Test commit\n')
 
     def test_read_commit_no_parents(self):
         sha = Sha1Sum('0d89f20333fbb1d2f3a94da77f4981373d8f4310')
@@ -189,7 +188,7 @@ class BlobReadTests(TestCase):
         self.assertEqual(c.commit_time, 1174758034)
         self.assertEqual(c.commit_timezone, 0)
         self.assertEqual(c.author_timezone, 0)
-        self.assertEqual(c.message, 'Test commit\n')
+        self.assertEqual(c.message, b'Test commit\n')
 
     def test_read_commit_two_parents(self):
         sha = Sha1Sum('5dac377bdded4c9aeb8dff595f0faeebcc8498cc')
@@ -204,11 +203,11 @@ class BlobReadTests(TestCase):
         self.assertEqual(c.commit_time, 1174773719)
         self.assertEqual(c.commit_timezone, 0)
         self.assertEqual(c.author_timezone, 0)
-        self.assertEqual(c.message, 'Merge ../b\n')
+        self.assertEqual(c.message, b'Merge ../b\n')
 
     def test_stub_sha(self):
         sha = Sha1Sum('5' * 40)
-        c = make_commit(id=sha, message='foo')
+        c = make_commit(id=sha, message=b'foo')
         self.assertTrue(isinstance(c, Commit))
         self.assertEqual(sha, c.id)
         self.assertNotEqual(sha, c._make_sha())
@@ -266,7 +265,7 @@ class CommitSerializationTests(TestCase):
                  'author_time': 1174773719,
                  'commit_timezone': 0,
                  'author_timezone': 0,
-                 'message':  'Merge ../b\n'}
+                 'message': b'Merge ../b\n'}
         attrs.update(kwargs)
         return make_commit(**attrs)
 
@@ -318,7 +317,7 @@ class CommitParseTests(ShaFileCheckTests):
                           author=default_committer,
                           committer=default_committer,
                           encoding=None,
-                          message='Merge ../b\n',
+                          message=b'Merge ../b\n',
                           extra=None):
 
         lines = []
@@ -344,7 +343,7 @@ class CommitParseTests(ShaFileCheckTests):
                 lines.append(name + b' ' + value)
         lines.append(b'')
         if message is not None:
-            lines.append(message.encode('utf-8'))
+            lines.append(message)
         return lines
 
     def make_commit_text(self, **kwargs):
@@ -352,7 +351,7 @@ class CommitParseTests(ShaFileCheckTests):
 
     def test_simple(self):
         c = Commit.from_string(self.make_commit_text())
-        self.assertEqual('Merge ../b\n', c.message)
+        self.assertEqual(b'Merge ../b\n', c.message)
         self.assertEqual('James Westby <jw+debian@jameswestby.net>', c.author)
         self.assertEqual('James Westby <jw+debian@jameswestby.net>',
                           c.committer)
@@ -571,7 +570,7 @@ class TagSerializeTests(TestCase):
         x = make_object(Tag,
                         tagger='Jelmer Vernooij <jelmer@samba.org>',
                         name='0.1',
-                        message='Tag 0.1',
+                        message=b'Tag 0.1',
                         object=(Blob, Sha1Sum('d80c186a03f423a81b39df39dc87fd269736ca86')),
                         tag_time=423423423,
                         tag_timezone=0)
@@ -586,7 +585,7 @@ class TagSerializeTests(TestCase):
 
 default_tagger = ('Linus Torvalds <torvalds@woody.linux-foundation.org> '
                   '1183319674 -0700')
-default_message = """Linux 2.6.22-rc7
+default_message = b"""Linux 2.6.22-rc7
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.7 (GNU/Linux)
 
@@ -616,7 +615,7 @@ class TagParseTests(ShaFileCheckTests):
             lines.append(b'tagger ' + tagger.encode('utf-8'))
         lines.append(b'')
         if message is not None:
-            lines.append(message.encode('utf-8'))
+            lines.append(message)
         return lines
 
     def make_tag_text(self, **kwargs):

@@ -66,7 +66,7 @@ class GitFastExporterTests(TestCase):
         c.committer = c.author = "Jelmer <jelmer@host>"
         c.author_time = c.commit_time = 1271345553
         c.author_timezone = c.commit_timezone = 0
-        c.message = "msg"
+        c.message = b"msg"
         c.tree = t.id
         self.store.add_objects([(b, None), (t, None), (c, None)])
         self.fastexporter.emit_commit(c, "refs/heads/master")
@@ -106,7 +106,7 @@ class GitImportProcessorTests(TestCase):
         commit = self.repo[self.processor.last_commit]
         self.assertEqual("Jelmer <jelmer@samba.org>", commit.author)
         self.assertEqual("Jelmer <jelmer@samba.org>", commit.committer)
-        self.assertEqual("FOO", commit.message)
+        self.assertEqual(b"FOO", commit.message)
         self.assertEqual([], commit.parents)
         self.assertEqual(432432432.0, commit.commit_time)
         self.assertEqual(432432432.0, commit.author_time)

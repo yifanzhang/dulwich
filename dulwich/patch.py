@@ -30,7 +30,6 @@ import time
 
 from dulwich.objects import (
     Commit,
-    Sha1Sum,
     S_ISGITLINK,
     )
 
@@ -68,7 +67,7 @@ def write_commit_patch(f, commit, contents, progress, version=None):
     write('From ' + str(commit.id) + ' ' + time.ctime(commit.commit_time) + '\n')
     write('From: ' + commit.author + '\n')
     write('Date: ' + time.strftime("%a, %d %b %Y %H:%M:%S %Z") + '\n')
-    write('Subject: [PATCH ' + str(num) + '/' + str(total) + '] ' + commit.message + '\n')
+    write('Subject: [PATCH ' + str(num) + '/' + str(total) + '] ' + commit.message.decode('utf-8') + '\n')
     write('\n')
     write('---\n')
     try:
@@ -96,7 +95,7 @@ def get_summary(commit):
     :param commit: Commit
     :return: Summary string
     """
-    return commit.message.splitlines()[0].replace(" ", "-")
+    return commit.message.decode('utf-8').splitlines()[0].replace(" ", "-")
 
 def unified_diff(a, b, fromfile='', tofile='', n=3):
     """difflib.unified_diff that doesn't write any dates or trailing spaces.
@@ -276,7 +275,7 @@ def git_am_patch_split(f):
     else:
         close = msg["subject"].index("] ", patch_tag_start)
         subject = msg["subject"][close+2:]
-    c.message = subject.replace("\n", "") + "\n"
+    c.message = subject.replace("\n", "").encode('utf-8') + b"\n"
     first = True
 
     body = StringIO(msg.get_payload())
@@ -288,10 +287,10 @@ def git_am_patch_split(f):
             if l.startswith("From: "):
                 c.author = l[len("From: "):].rstrip()
             else:
-                c.message += "\n" + l
+                c.message += b"\n" + l.encode('utf-8')
             first = False
         else:
-            c.message += l
+            c.message += l.encode('utf-8')
     diff = ''
     for l in body:
         if l == "-- \n":

@@ -228,7 +228,7 @@ class DumbHandlersTestCase(WebTestCase):
                            tagger='Test <test@example.com>',
                            tag_time=12345,
                            tag_timezone=0,
-                           message='message',
+                           message=b'message',
                            object=(Blob, blob2.id))
 
         objects = [blob1, blob2, blob3, tag1]

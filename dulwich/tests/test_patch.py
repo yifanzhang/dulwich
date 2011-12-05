@@ -50,7 +50,7 @@ class WriteCommitPatchTests(TestCase):
         c.committer = c.author = "Jelmer <jelmer@samba.org>"
         c.commit_time = c.author_time = 1271350201
         c.commit_timezone = c.author_timezone = 0
-        c.message = "This is the first line\nAnd this is the second line.\n"
+        c.message = b"This is the first line\nAnd this is the second line.\n"
         c.tree = Tree().id
         write_commit_patch(f, c, "CONTENTS", (1, 1), version="custom")
         f.seek(0)
@@ -91,8 +91,8 @@ Subject: [PATCH 1/2] Remove executable bit from prey.ico (triggers a lintian war
         c, diff, version = git_am_patch_split(StringIO(text))
         self.assertEqual("Jelmer Vernooij <jelmer@samba.org>", c.committer)
         self.assertEqual("Jelmer Vernooij <jelmer@samba.org>", c.author)
-        self.assertEqual("Remove executable bit from prey.ico "
-            "(triggers a lintian warning).\n", c.message)
+        self.assertEqual(b"Remove executable bit from prey.ico "
+            b"(triggers a lintian warning).\n", c.message)
         self.assertEqual(""" pixmaps/prey.ico |  Bin 9662 -> 9662 bytes
  1 files changed, 0 insertions(+), 0 deletions(-)
  mode change 100755 => 100644 pixmaps/prey.ico
@@ -119,7 +119,7 @@ Subject:  [Dulwich-users] [PATCH] Added unit tests for
 1.7.0.4
 """
         c, diff, version = git_am_patch_split(StringIO(text))
-        self.assertEqual('Added unit tests for dulwich.object_store.tree_lookup_path.\n\n* dulwich/tests/test_object_store.py\n  (TreeLookupPathTests): This test case contains a few tests that ensure the\n   tree_lookup_path function works as expected.\n', c.message)
+        self.assertEqual(b'Added unit tests for dulwich.object_store.tree_lookup_path.\n\n* dulwich/tests/test_object_store.py\n  (TreeLookupPathTests): This test case contains a few tests that ensure the\n   tree_lookup_path function works as expected.\n', c.message)
 
     def test_extract_pseudo_from_header(self):
         text = """From ff643aae102d8870cac88e8f007e70f58f3a7363 Mon Sep 17 00:00:00 2001
@@ -143,7 +143,7 @@ From: Jelmer Vernooy <jelmer@debian.org>
 """
         c, diff, version = git_am_patch_split(StringIO(text))
         self.assertEqual("Jelmer Vernooy <jelmer@debian.org>", c.author)
-        self.assertEqual('Added unit tests for dulwich.object_store.tree_lookup_path.\n\n* dulwich/tests/test_object_store.py\n  (TreeLookupPathTests): This test case contains a few tests that ensure the\n   tree_lookup_path function works as expected.\n', c.message)
+        self.assertEqual(b'Added unit tests for dulwich.object_store.tree_lookup_path.\n\n* dulwich/tests/test_object_store.py\n  (TreeLookupPathTests): This test case contains a few tests that ensure the\n   tree_lookup_path function works as expected.\n', c.message)
 
     def test_extract_no_version_tail(self):
         text = """From ff643aae102d8870cac88e8f007e70f58f3a7363 Mon Sep 17 00:00:00 2001

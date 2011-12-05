@@ -117,7 +117,7 @@ class DulwichClientTestBase(object):
         c.author = c.committer = 'Foo Bar <foo@example.com>'
         c.author_time = c.commit_time = 0
         c.author_timezone = c.commit_timezone = 0
-        c.message = 'hi'
+        c.message = b'hi'
         c.tree = t
         dest.object_store.add_object(c)
         return c.id

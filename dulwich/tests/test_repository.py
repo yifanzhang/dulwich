@@ -313,7 +313,7 @@ class BuildRepoTests(TestCase):
         with open(os.path.join(r.path, 'a'), 'wb') as f:
             f.write(b'file contents')
         r.stage(['a'])
-        commit_sha = r.do_commit('msg',
+        commit_sha = r.do_commit(b'msg',
                                  committer='Test Committer <test@nodomain.com>',
                                  author='Test Author <test@nodomain.com>',
                                  commit_timestamp=12345, commit_timezone=0,
@@ -332,14 +332,14 @@ class BuildRepoTests(TestCase):
         expected_blob = objects.Blob.from_string(b'file contents')
         self.assertEqual(expected_blob.data, r[expected_blob.id].data)
         actual_commit = r[self._root_commit]
-        self.assertEqual('msg', actual_commit.message)
+        self.assertEqual(b'msg', actual_commit.message)
 
     def test_commit_modified(self):
         r = self._repo
         with open(os.path.join(r.path, 'a'), 'wb') as f:
             f.write(b'new contents')
         r.stage(['a'])
-        commit_sha = r.do_commit('modified a',
+        commit_sha = r.do_commit(b'modified a',
                                  committer='Test Committer <test@nodomain.com>',
                                  author='Test Author <test@nodomain.com>',
                                  commit_timestamp=12395, commit_timezone=0,
@@ -352,7 +352,7 @@ class BuildRepoTests(TestCase):
         r = self._repo
         os.remove(os.path.join(r.path, 'a'))
         r.stage(['a'])
-        commit_sha = r.do_commit('deleted a',
+        commit_sha = r.do_commit(b'deleted a',
                                  committer='Test Committer <test@nodomain.com>',
                                  author='Test Author <test@nodomain.com>',
                                  commit_timestamp=12395, commit_timezone=0,
@@ -364,7 +364,7 @@ class BuildRepoTests(TestCase):
 
     def test_commit_encoding(self):
         r = self._repo
-        commit_sha = r.do_commit('commit with strange character \xee',
+        commit_sha = r.do_commit(b'commit with strange character \xee',
              committer='Test Committer <test@nodomain.com>',
              author='Test Author <test@nodomain.com>',
              commit_timestamp=12395, commit_timezone=0,
@@ -384,7 +384,7 @@ class BuildRepoTests(TestCase):
         r.refs.add_if_new = add_if_new
 
         old_shas = set(r.object_store)
-        self.assertRaises(errors.CommitError, r.do_commit, 'failed commit',
+        self.assertRaises(errors.CommitError, r.do_commit, b'failed commit',
                           committer='Test Committer <test@nodomain.com>',
                           author='Test Author <test@nodomain.com>',
                           commit_timestamp=12345, commit_timezone=0,
@@ -394,12 +394,12 @@ class BuildRepoTests(TestCase):
         # Check that the new commit (now garbage) was added.
         new_commit = r[new_shas.pop()]
         self.assertEqual(r[self._root_commit].tree, new_commit.tree)
-        self.assertEqual('failed commit', new_commit.message)
+        self.assertEqual(b'failed commit', new_commit.message)
 
     def test_commit_branch(self):
         r = self._repo
 
-        commit_sha = r.do_commit('commit to branch',
+        commit_sha = r.do_commit(b'commit to branch',
              committer='Test Committer <test@nodomain.com>',
              author='Test Author <test@nodomain.com>',
              commit_timestamp=12395, commit_timezone=0,
@@ -412,7 +412,7 @@ class BuildRepoTests(TestCase):
 
         new_branch_head = commit_sha
 
-        commit_sha = r.do_commit('commit to branch 2',
+        commit_sha = r.do_commit(b'commit to branch 2',
              committer='Test Committer <test@nodomain.com>',
              author='Test Author <test@nodomain.com>',
              commit_timestamp=12395, commit_timezone=0,
@@ -424,13 +424,13 @@ class BuildRepoTests(TestCase):
 
     def test_commit_merge_heads(self):
         r = self._repo
-        merge_1 = r.do_commit('commit to branch 2',
+        merge_1 = r.do_commit(b'commit to branch 2',
              committer='Test Committer <test@nodomain.com>',
              author='Test Author <test@nodomain.com>',
              commit_timestamp=12395, commit_timezone=0,
              author_timestamp=12395, author_timezone=0,
              ref=b"refs/heads/new_branch")
-        commit_sha = r.do_commit('commit with merge',
+        commit_sha = r.do_commit(b'commit with merge',
              committer='Test Committer <test@nodomain.com>',
              author='Test Author <test@nodomain.com>',
              commit_timestamp=12395, commit_timezone=0,

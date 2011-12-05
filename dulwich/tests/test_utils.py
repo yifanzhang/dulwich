@@ -72,9 +72,9 @@ class BuildCommitGraphTest(TestCase):
 
     def test_attrs(self):
         c1, c2 = build_commit_graph(self.store, [[1], [2, 1]],
-                                    attrs={1: {'message': 'Hooray!'}})
-        self.assertEqual('Hooray!', c1.message)
-        self.assertEqual('Commit 2', c2.message)
+                                    attrs={1: {b'message': 'Hooray!'}})
+        self.assertEqual(b'Hooray!', c1.message)
+        self.assertEqual(b'Commit 2', c2.message)
 
     def test_commit_time(self):
         c1, c2, c3 = build_commit_graph(self.store, [[1], [2, 1], [3, 2]],

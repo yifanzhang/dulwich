@@ -45,7 +45,7 @@ job of the commit::
   >>> tz = parse_timezone('-0200')[0]
   >>> commit.commit_timezone = commit.author_timezone = tz
   >>> commit.encoding = "UTF-8"
-  >>> commit.message = "Initial commit"
+  >>> commit.message = b"Initial commit"
 
 Note that the initial commit has no parents.
 
@@ -148,7 +148,7 @@ Now let's record the change::
   >>> c2.commit_time = c2.author_time = int(time())
   >>> c2.commit_timezone = c2.author_timezone = 0
   >>> c2.encoding = "UTF-8"
-  >>> c2.message = 'Changing "spam"'
+  >>> c2.message = b'Changing "spam"'
 
 In this new commit we record the changed tree id, and most important, the
 previous commit as the parent. Parents are actually a list because a commit

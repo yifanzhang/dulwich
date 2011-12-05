@@ -121,7 +121,7 @@ def make_commit(**attrs):
                  'committer': 'Test Committer <test@nodomain.com>',
                  'commit_time': default_time,
                  'commit_timezone': 0,
-                 'message': 'Test message.',
+                 'message': b'Test message.',
                  'parents': [],
                  'tree': Sha1Sum('0' * 40)}
     all_attrs.update(attrs)
@@ -294,7 +294,7 @@ def build_commit_graph(object_store, commit_spec, trees=None, attrs=None):
         tree_id = commit_tree(object_store, blobs)
 
         commit_attrs = {
-            'message': 'Commit %i' % commit_num,
+            'message': ('Commit %i' % commit_num).encode('ascii'),
             'parents': parent_ids,
             'tree': tree_id,
             'commit_time': commit_time,

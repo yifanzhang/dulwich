@@ -168,7 +168,7 @@ class ObjectStoreTests(object):
         self.assertEqual(expected, list(actual))
 
     def make_tag(self, name, obj):
-        tag = make_object(Tag, name=name, message='',
+        tag = make_object(Tag, name=name, message=b'',
                           tag_time=12345, tag_timezone=0,
                           tagger='Test Tagger <test@example.com>',
                           object=(object_class(obj.type_name), obj.id))

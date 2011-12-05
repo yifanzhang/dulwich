@@ -971,7 +971,7 @@ class Tag(ShaFile):
                               format_timezone(self._tag_timezone, self._tag_timezone_neg_utc) + b'\n')
 
         chunks.append(b'\n') # To close headers
-        chunks.append(self._message.encode('utf-8'))
+        chunks.append(self._message)
         return chunks
 
     def _deserialize(self, chunks):
@@ -1006,7 +1006,7 @@ class Tag(ShaFile):
                     except ValueError as e:
                         raise ObjectFormatException(e)
             elif field is None:
-                self._message = value.decode('utf-8')
+                self._message = value
             else:
                 raise ObjectFormatException("Unknown field %s" % field)
 
@@ -1382,7 +1382,7 @@ class Commit(ShaFile):
             elif field == _ENCODING_HEADER:
                 self._encoding = value.decode('utf-8')
             elif field is None:
-                self._message = value.decode('utf-8')
+                self._message = value
             else:
                 self._extra.append((field, value))
 
@@ -1443,7 +1443,7 @@ class Commit(ShaFile):
                 raise AssertionError("newline in extra data: %r -> %r" % (k, v))
             chunks.append(k + b' ' + v + b'\n')
         chunks.append(b'\n') # There must be a new line after the headers
-        chunks.append(self._message.encode('utf-8'))
+        chunks.append(self._message)
         return chunks
 
     tree = serializable_property("tree", "Tree that is the state of this commit")
