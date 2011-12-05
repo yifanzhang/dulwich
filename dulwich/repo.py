@@ -48,12 +48,10 @@ from dulwich.object_store import (
 from dulwich.objects import (
     Blob,
     Commit,
-    ShaFile,
     Tag,
     Tree,
     Sha1Sum,
     )
-import warnings
 
 OBJECTDIR = 'objects'
 SYMREF = b'ref: '

@@ -502,7 +502,7 @@ class ProtocolGraphWalker(object):
             commit = pending.popleft()
             if commit.id in haves:
                 return True
-            if commit.type_name != 'commit':
+            if commit.type_name != b'commit':
                 # non-commit wants are assumed to be satisfied
                 continue
             for parent in commit.parents:

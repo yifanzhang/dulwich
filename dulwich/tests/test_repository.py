@@ -154,7 +154,7 @@ class RepositoryTests(TestCase):
     def test_get_object(self):
         r = self._repo = open_repo('a.git')
         obj = r.get_object(r.head())
-        self.assertEqual(obj.type_name, 'commit')
+        self.assertEqual(obj.type_name, b'commit')
 
     def test_get_object_non_existant(self):
         r = self._repo = open_repo('a.git')

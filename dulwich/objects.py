@@ -27,7 +27,6 @@ from io import (
 import os
 import posixpath
 import stat
-import warnings
 import zlib
 import hashlib
 import re
@@ -99,7 +98,7 @@ def filename_to_sha(filename):
 
 def object_header(num_type, length):
     """Return an object header for the given numeric type and text length."""
-    return object_class(num_type).type_name.encode('utf-8') + \
+    return object_class(num_type).type_name + \
       b' ' + str(length).encode('utf-8') + b'\0'
 
 
@@ -538,11 +537,11 @@ class ShaFile(object):
             end = header.find(b"\0", start)
             start = len(header)
         header = header[:end]
-        type_name, size = [h.decode('utf-8') for h in header.split(b" ", 1)]
-        size = int(size)  # sanity check
+        type_name, size = header.split(b" ", 1)
+        size = int(size.decode('ascii'))  # sanity check
         obj_class = object_class(type_name)
         if not obj_class:
-            raise ObjectFormatException("Not a known type: %s" % type_name)
+            raise ObjectFormatException("Not a known type: %r" % type_name)
         ret = obj_class()
         ret._magic = magic
         return ret
@@ -606,7 +605,6 @@ class ShaFile(object):
         if type(text) != bytes:
             raise TypeError(text)
         self.set_raw_chunks([text])
-
 
     def set_raw_chunks(self, chunks):
         self._chunked_text = chunks
@@ -827,7 +825,7 @@ class Blob(ShaFile):
 
     __slots__ = ()
 
-    type_name = 'blob'
+    type_name = b'blob'
     type_num = 3
 
     def __init__(self):
@@ -906,7 +904,7 @@ def parse_tag(text):
 class Tag(ShaFile):
     """A Git Tag object."""
 
-    type_name = 'tag'
+    type_name = b'tag'
     type_num = 4
 
     __slots__ = ('_tag_timezone_neg_utc', '_name', '_object_sha',
@@ -961,7 +959,7 @@ class Tag(ShaFile):
         chunks.append(_OBJECT_HEADER.encode('utf-8') + b' ' +
                       self._object_sha.hex_bytes + b'\n')
         chunks.append(_TYPE_HEADER.encode('utf-8') + b' ' +
-                      self._object_class.type_name.encode('utf-8') + b'\n')
+                      self._object_class.type_name + b'\n')
         chunks.append(_TAG_HEADER.encode('utf-8') + b' ' +
                       self._name.encode('utf-8') + b'\n')
         if self._tagger:
@@ -987,7 +985,7 @@ class Tag(ShaFile):
             if field == _OBJECT_HEADER:
                 self._object_sha = Sha1Sum(value, lazy_errors=True)
             elif field == _TYPE_HEADER:
-                obj_class = object_class(value.decode('utf-8'))
+                obj_class = object_class(value)
                 if not obj_class:
                     raise ObjectFormatException("Not a known type: %s" % value.decode('utf-8'))
                 self._object_class = obj_class
@@ -1149,7 +1147,7 @@ def cmp_entry_name_order(entry1, entry2):
 class Tree(ShaFile):
     """A Git tree object"""
 
-    type_name = 'tree'
+    type_name = b'tree'
     type_num = 2
 
     __slots__ = ('_entries')
@@ -1341,7 +1339,7 @@ def parse_commit(text):
 class Commit(ShaFile):
     """A git commit object"""
 
-    type_name = 'commit'
+    type_name = b'commit'
     type_num = 1
 
     __slots__ = ('_parents', '_encoding', '_extra', '_author_timezone_neg_utc',

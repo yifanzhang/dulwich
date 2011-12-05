@@ -291,13 +291,13 @@ class TestPack(PackTests):
         """Tests random access for non-delta objects"""
         with self.get_pack(pack1_sha) as p:
             obj = p[a_sha]
-            self.assertEqual(obj.type_name, 'blob')
+            self.assertEqual(obj.type_name, b'blob')
             self.assertEqual(Sha1Sum(obj.sha()), a_sha)
             obj = p[tree_sha]
-            self.assertEqual(obj.type_name, 'tree')
+            self.assertEqual(obj.type_name, b'tree')
             self.assertEqual(Sha1Sum(obj.sha()), tree_sha)
             obj = p[commit_sha]
-            self.assertEqual(obj.type_name, 'commit')
+            self.assertEqual(obj.type_name, b'commit')
             self.assertEqual(Sha1Sum(obj.sha()), commit_sha)
 
     def test_copy(self):

@@ -250,7 +250,7 @@ class ShaFileTests(TestCase):
         # resulting in a different header.
         # See https://github.com/libgit2/libgit2/pull/464
         sf = ShaFile.from_file(BytesIO(small_buffer_zlib_object))
-        self.assertEqual(sf.type_name, "tag")
+        self.assertEqual(sf.type_name, b"tag")
         self.assertEqual(sf.tagger, " <@localhost>")
 
 
