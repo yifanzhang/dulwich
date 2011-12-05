@@ -47,18 +47,18 @@ from dulwich.file import GitFile
 ZERO_SHA = b"0" * 40
 
 # Header fields for commits
-_TREE_HEADER = "tree"
-_PARENT_HEADER = "parent"
-_AUTHOR_HEADER = "author"
-_COMMITTER_HEADER = "committer"
-_ENCODING_HEADER = "encoding"
+_TREE_HEADER = b"tree"
+_PARENT_HEADER = b"parent"
+_AUTHOR_HEADER = b"author"
+_COMMITTER_HEADER = b"committer"
+_ENCODING_HEADER = b"encoding"
 
 
 # Header fields for objects
-_OBJECT_HEADER = "object"
-_TYPE_HEADER = "type"
-_TAG_HEADER = "tag"
-_TAGGER_HEADER = "tagger"
+_OBJECT_HEADER = b"object"
+_TYPE_HEADER = b"type"
+_TAG_HEADER = b"tag"
+_TAGGER_HEADER = b"tagger"
 
 # What's a SHA1 sum look like?
 _SREX = re.compile("^[A-Fa-f0-9]{40}$")
@@ -942,8 +942,6 @@ class Tag(ShaFile):
 
         last = None
         for field, _ in parse_tag(b"".join(self._chunked_text)):
-            if field:
-                field = field.decode('utf-8')
             if field == _OBJECT_HEADER and last is not None:
                 raise ObjectFormatException("unexpected object")
             elif field == _TYPE_HEADER and last != _OBJECT_HEADER:
@@ -956,18 +954,18 @@ class Tag(ShaFile):
 
     def _serialize(self):
         chunks = []
-        chunks.append(_OBJECT_HEADER.encode('utf-8') + b' ' +
+        chunks.append(_OBJECT_HEADER + b' ' +
                       self._object_sha.hex_bytes + b'\n')
-        chunks.append(_TYPE_HEADER.encode('utf-8') + b' ' +
+        chunks.append(_TYPE_HEADER + b' ' +
                       self._object_class.type_name + b'\n')
-        chunks.append(_TAG_HEADER.encode('utf-8') + b' ' +
+        chunks.append(_TAG_HEADER + b' ' +
                       self._name.encode('utf-8') + b'\n')
         if self._tagger:
             if self._tag_time is None:
-                chunks.append(_TAGGER_HEADER.encode('utf-8') + b' ' +
+                chunks.append(_TAGGER_HEADER + b' ' +
                               self._tagger.encode('utf-8') + b'\n')
             else:
-                chunks.append(_TAGGER_HEADER.encode('utf-8') + b' ' +
+                chunks.append(_TAGGER_HEADER + b' ' +
                               self._tagger.encode('utf-8') + b' ' +
                               str(self._tag_time).encode('utf-8') + b' ' +
                               format_timezone(self._tag_timezone, self._tag_timezone_neg_utc) + b'\n')
@@ -980,8 +978,6 @@ class Tag(ShaFile):
         """Grab the metadata attached to the tag"""
         self._tagger = None
         for field, value in parse_tag(b"".join(chunks)):
-            if field:
-                field = field.decode('utf-8')
             if field == _OBJECT_HEADER:
                 self._object_sha = Sha1Sum(value, lazy_errors=True)
             elif field == _TYPE_HEADER:
@@ -1369,27 +1365,23 @@ class Commit(ShaFile):
         self._author = None
 
         for field, value in parse_commit(b''.join(self._chunked_text)):
-            if field:
-                fieldname = field.decode('utf-8')
-            else:
-                fieldname = None
-            if fieldname == _TREE_HEADER:
+            if field == _TREE_HEADER:
                 self._tree = Sha1Sum(value)
-            elif fieldname == _PARENT_HEADER:
+            elif field == _PARENT_HEADER:
                 self._parents.append(Sha1Sum(value))
-            elif fieldname == _AUTHOR_HEADER:
+            elif field == _AUTHOR_HEADER:
                 self._author, timetext, timezonetext = value.decode('utf-8').rsplit(" ", 2)
                 self._author_time = int(timetext)
                 self._author_timezone, self._author_timezone_neg_utc =\
                     parse_timezone(timezonetext)
-            elif fieldname == _COMMITTER_HEADER:
+            elif field == _COMMITTER_HEADER:
                 self._committer, timetext, timezonetext = value.decode('utf-8').rsplit(" ", 2)
                 self._commit_time = int(timetext)
                 self._commit_timezone, self._commit_timezone_neg_utc =\
                     parse_timezone(timezonetext)
-            elif fieldname == _ENCODING_HEADER:
+            elif field == _ENCODING_HEADER:
                 self._encoding = value.decode('utf-8')
-            elif fieldname is None:
+            elif field is None:
                 self._message = value.decode('utf-8')
             else:
                 self._extra.append((field, value))
@@ -1414,8 +1406,6 @@ class Commit(ShaFile):
 
         last = None
         for field, _ in parse_commit(b"".join(self._chunked_text)):
-            if field:
-                field = field.decode('utf-8')
             if field == _TREE_HEADER and last is not None:
                 raise ObjectFormatException("unexpected tree")
             elif field == _PARENT_HEADER and last not in (_PARENT_HEADER,
@@ -1434,19 +1424,19 @@ class Commit(ShaFile):
 
     def _serialize(self):
         chunks = []
-        chunks.append(_TREE_HEADER.encode('utf-8') + b' ' + self._tree.hex_bytes + b'\n')
+        chunks.append(_TREE_HEADER + b' ' + self._tree.hex_bytes + b'\n')
         for p in self._parents:
-            chunks.append(_PARENT_HEADER.encode('utf-8') + b' ' + p.hex_bytes + b'\n')
-        chunks.append(_AUTHOR_HEADER.encode('utf-8') + b' ' +
+            chunks.append(_PARENT_HEADER + b' ' + p.hex_bytes + b'\n')
+        chunks.append(_AUTHOR_HEADER + b' ' +
                       self._author.encode('utf-8') + b' ' +
                       str(self._author_time).encode('utf-8') + b' ' +
                       format_timezone(self._author_timezone, self._author_timezone_neg_utc) + b'\n')
-        chunks.append(_COMMITTER_HEADER.encode('utf-8') + b' ' +
+        chunks.append(_COMMITTER_HEADER + b' ' +
                       self._committer.encode('utf-8') + b' ' +
                       str(self._commit_time).encode('utf-8') + b' ' +
                       format_timezone(self._commit_timezone, self._commit_timezone_neg_utc) + b'\n')
         if self.encoding:
-            chunks.append(_ENCODING_HEADER.encode('utf-8') + b' ' + 
+            chunks.append(_ENCODING_HEADER + b' ' + 
                           self.encoding.encode('utf-8') + b'\n')
         for k, v in self.extra:
             if b'\n' in k or b'\n' in v:
