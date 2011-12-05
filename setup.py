@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 # Setup file for dulwich
 # Copyright (C) 2008-2011 Jelmer Vernooij <jelmer@samba.org>
 
@@ -27,7 +27,7 @@ class DulwichDistribution(Distribution):
             return True
 
     def has_ext_modules(self):
-        return not self.pure
+        return not self.pure and not '__pypy__' in sys.modules
 
     global_options = Distribution.global_options + [
         ('pure', None, 

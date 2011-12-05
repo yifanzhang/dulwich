@@ -1,9 +1,6 @@
 PYTHON = python3
 SETUP = $(PYTHON) setup.py
 PYDOCTOR ?= pydoctor
-ifeq ($(shell $(PYTHON) -c "import sys; print(sys.version_info[0:2] >= (3, 0))"),True)
-VALID = TRUE
-endif
 TESTRUNNER ?= unittest
 RUNTEST = PYTHONPATH=.:$(PYTHONPATH) $(PYTHON) -m $(TESTRUNNER)
 
@@ -14,11 +11,11 @@ doc:: pydoctor
 pydoctor::
 	$(PYDOCTOR) --make-html -c dulwich.cfg
 
-build:: is_valid
+build::
 	$(SETUP) build
 	$(SETUP) build_ext -i
 
-install:: is_valid
+install::
 	$(SETUP) install
 
 check:: build
@@ -27,10 +24,13 @@ check:: build
 check-nocompat:: build
 	$(RUNTEST) dulwich.tests.nocompat_test_suite
 
+check-pypy:: clean
+	$(MAKE) check-noextensions PYTHON=pypy
+
 check-noextensions:: clean
 	$(RUNTEST) dulwich.tests.test_suite
 
-check-all: check check-noextensions
+check-all: check check-pypy check-noextensions
 
 clean::
 	$(SETUP) clean --all
@@ -41,9 +41,3 @@ clean::
 	rm -rf dulwich/__pycache__
 	rm -rf dulwich/tests/__pycache__
 	rm -rf dulwich/tests/compat/__pycache__
-
-is_valid:
-ifndef VALID
-	@echo "Invalid version of python detected. This library requires python version 3.x or higher"
-	@exit 2
-endif
