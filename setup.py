@@ -89,6 +89,9 @@ setup(name='dulwich',
           Extension('dulwich._diff_tree', ['dulwich/_diff_tree.c'],
               include_dirs=include_dirs),
           ],
+      classifiers=[
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 3'],
       distclass=DulwichDistribution,
       **setup_kwargs
       )
