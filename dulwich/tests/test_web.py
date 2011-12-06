@@ -109,7 +109,7 @@ def _test_backend(objects, refs=None, named_files=None):
     repo = MemoryRepo.init_bare(objects, refs)
     for path, contents in list(named_files.items()):
         repo._put_named_file(path, contents)
-    return DictBackend({'/': repo})
+    return DictBackend({b'/': repo})
 
 
 class DumbHandlersTestCase(WebTestCase):
@@ -268,7 +268,7 @@ class DumbHandlersTestCase(WebTestCase):
 
         store = TestObjectStore()
         with BaseRepo(store, None) as repo:
-            with DictBackend({'/': repo}) as backend:
+            with DictBackend({b'/': repo}) as backend:
                 mat = re.search('.*', '//info/packs')
                 output = b''.join(get_info_packs(self._req, backend, mat))
                 expected = 'P pack-%s.pack\n' * 3

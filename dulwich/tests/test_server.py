@@ -20,6 +20,7 @@
 
 from io import BytesIO
 import os
+import sys
 import tempfile
 
 from dulwich.errors import (
@@ -148,9 +149,9 @@ class UploadPackHandlerTestCase(TestCase):
     def setUp(self):
         super(UploadPackHandlerTestCase, self).setUp()
         self._repo = MemoryRepo.init_bare([], {})
-        backend = DictBackend({'/': self._repo})
+        backend = DictBackend({b'/': self._repo})
         self._handler = UploadPackHandler(
-          backend, ['/', 'host=lolcathost'], TestProto())
+          backend, [b'/', b'host=lolcathost'], TestProto())
 
     def test_progress(self):
         caps = self._handler.required_capabilities()
@@ -218,9 +219,9 @@ class ProtocolGraphWalkerTestCase(TestCase):
           make_commit(id=FIVE, parents=[THREE], commit_time=555),
           ]
         self._repo = MemoryRepo.init_bare(commits, {})
-        backend = DictBackend({'/': self._repo})
+        backend = DictBackend({b'/': self._repo})
         self._walker = ProtocolGraphWalker(
-            TestUploadPackHandler(backend, ['/', 'host=lolcats'], TestProto()),
+            TestUploadPackHandler(backend, [b'/', b'host=lolcats'], TestProto()),
             self._repo.object_store, self._repo.get_peeled)
 
     def test_is_satisfied_no_haves(self):
@@ -657,15 +658,15 @@ class FileSystemBackendTests(TestCase):
 
     def test_nonexistant(self):
         self.assertRaises(NotGitRepository,
-            self.backend.open_repository, "/does/not/exist/unless/foo")
+            self.backend.open_repository, b"/does/not/exist/unless/foo")
 
     def test_absolute(self):
-        repo = self.backend.open_repository(self.path)
+        repo = self.backend.open_repository(self.path.encode(sys.getfilesystemencoding()))
         self.assertEqual(repo.path, self.repo.path)
 
     def test_child(self):
         self.assertRaises(NotGitRepository,
-            self.backend.open_repository, os.path.join(self.path, "foo"))
+            self.backend.open_repository, os.path.join(self.path, "foo").encode(sys.getfilesystemencoding()))
 
 
 class ServeCommandTests(TestCase):
@@ -676,12 +677,12 @@ class ServeCommandTests(TestCase):
         self.backend = DictBackend({})
 
     def serve_command(self, handler_cls, args, inf, outf):
-        return serve_command(handler_cls, [b"test"] + args, backend=self.backend,
+        return serve_command(handler_cls, ["test"] + args, backend=self.backend,
             inf=inf, outf=outf)
 
     def test_receive_pack(self):
         commit = make_commit(id=ONE, parents=[], commit_time=111)
-        self.backend.repos['/'] = MemoryRepo.init_bare(
+        self.backend.repos[b'/'] = MemoryRepo.init_bare(
             [commit], {b'refs/heads/master': commit.id})
         outf = BytesIO()
         exitcode = self.serve_command(ReceivePackHandler, ['/'], BytesIO(b'0000'), outf)

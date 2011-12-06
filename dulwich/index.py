@@ -94,7 +94,7 @@ def read_cache_entry(f):
     mtime = read_cache_time(f)
     (dev, ino, mode, uid, gid, size, sha, flags, ) = \
         struct.unpack(">LLLLLL20sH", f.read(20 + 4 * 6 + 2))
-    name = f.read((flags & 0x0fff)).decode('utf-8')
+    name = f.read((flags & 0x0fff))
     # Padding:
     real_size = ((f.tell() - beginoffset + 8) & ~7)
     data = f.read((beginoffset + real_size) - f.tell())
@@ -115,7 +115,7 @@ def write_cache_entry(f, entry):
     write_cache_time(f, mtime)
     flags = len(name) | (flags &~ 0x0fff)
     f.write(struct.pack(">LLLLLL20sH", dev, ino, mode, uid, gid, size, bytes(sha), flags))
-    f.write(name.encode('utf-8'))
+    f.write(name)
     real_size = ((f.tell() - beginoffset + 8) & ~7)
     f.write(b"\0" * ((beginoffset + real_size) - f.tell()))
 
@@ -250,7 +250,7 @@ class Index(object):
         self._byname[name] = x
 
     def __delitem__(self, name):
-        assert isinstance(name, str)
+        assert type(name) == bytes
         del self._byname[name]
 
     def iteritems(self):
@@ -312,7 +312,6 @@ def commit_tree(object_store, blobs):
         return newtree
 
     for path, sha, mode in blobs:
-        path = path.encode('utf-8')
         tree_path, basename = pathsplit(path)
         tree = add_tree(tree_path)
         tree[basename] = (mode, sha)

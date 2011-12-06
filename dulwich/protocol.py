@@ -54,6 +54,7 @@ class ProtocolFile(object):
     def close(self):
         pass
 
+
 def pkt_line(data):
     """Wrap data in a pkt-line.
 
@@ -64,7 +65,8 @@ def pkt_line(data):
     if data is None:
         return b'0000'
 
-    return ('%04x' % (len(data) + 4)).encode('utf-8') + data
+    return ('%04x' % (len(data) + 4)).encode('ascii') + data
+
 
 class Protocol(object):
     """Class for interacting with a remote git process over the wire.
@@ -373,6 +375,7 @@ class ReceivableProtocol(Protocol):
             del data  # explicit free
             self._rbuf = buf
         return buf.read(size)
+
 
 def extract_capabilities(text):
     """Extract a capabilities list from a string, if present.

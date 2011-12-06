@@ -24,6 +24,7 @@
 from io import BytesIO
 import errno
 import os
+import sys
 
 from dulwich.errors import (
     NoIndexPresent,
@@ -1075,6 +1076,7 @@ class Repo(BaseRepo):
         :param path: The path to the file, relative to the control dir.
         :return: An open file object, or None if the file does not exist.
         """
+        assert type(path) == str
         # TODO(dborowitz): sanitize filenames, since this is used directly by
         # the dumb web serving code.
         path = path.lstrip(os.path.sep)
@@ -1117,7 +1119,7 @@ class Repo(BaseRepo):
             except OSError:
                 # File no longer exists
                 try:
-                    del index[path]
+                    del index[path.encode(sys.getfilesystemencoding())]
                 except KeyError:
                     pass  # Doesn't exist in the index either
             else:
@@ -1125,7 +1127,8 @@ class Repo(BaseRepo):
                     blob.data = f.read()
                 self.object_store.add_object(blob)
                 # XXX: Cleanup some of the other file properties as well?
-                index[path] = (st.st_ctime, st.st_mtime, st.st_dev, st.st_ino,
+                index[path.encode(sys.getfilesystemencoding())] = (
+                    st.st_ctime, st.st_mtime, st.st_dev, st.st_ino,
                     cleanup_mode(st.st_mode), st.st_uid, st.st_gid, st.st_size,
                     blob.id, 0)
         index.write()

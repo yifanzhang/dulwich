@@ -24,6 +24,7 @@ import errno
 import itertools
 import os
 import stat
+import sys
 import tempfile
 
 from dulwich.diff_tree import (
@@ -372,7 +373,7 @@ class DiskObjectStore(PackBasedObjectStore):
                         continue
                     if not os.path.isabs(l):
                         continue
-                    ret.append(l.decode('utf-8'))
+                    ret.append(l.decode(sys.getfilesystemencoding()))
                 return ret
 
         except (OSError, IOError) as e:
@@ -396,7 +397,7 @@ class DiskObjectStore(PackBasedObjectStore):
             except (OSError, IOError) as e:
                 if e.errno != errno.ENOENT:
                     raise
-            f.write(("%s\n" % path).encode('utf-8'))
+            f.write(path.encode(sys.getfilesystemencoding()) + b"\n")
         self.alternates.append(DiskObjectStore(path))
 
     def _load_packs(self):

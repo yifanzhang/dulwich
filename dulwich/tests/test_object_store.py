@@ -109,9 +109,9 @@ class ObjectStoreTests(object):
         for blob in [blob_a1, blob_a2, blob_b]:
             self.store.add_object(blob)
 
-        blobs_1 = [('a', blob_a1.id, 0o100644), ('b', blob_b.id, 0o100644)]
+        blobs_1 = [(b'a', blob_a1.id, 0o100644), (b'b', blob_b.id, 0o100644)]
         tree1_id = commit_tree(self.store, blobs_1)
-        blobs_2 = [('a', blob_a2.id, 0o100644), ('b', blob_b.id, 0o100644)]
+        blobs_2 = [(b'a', blob_a2.id, 0o100644), (b'b', blob_b.id, 0o100644)]
         tree2_id = commit_tree(self.store, blobs_2)
         change_a = ((b'a', b'a'), (0o100644, 0o100644), (blob_a1.id, blob_a2.id))
         self.assertEqual([change_a],
@@ -129,14 +129,14 @@ class ObjectStoreTests(object):
             self.store.add_object(blob)
 
         blobs = [
-          ('a', blob_a.id, 0o100644),
-          ('ad/b', blob_b.id, 0o100644),
-          ('ad/bd/c', blob_c.id, 0o100755),
-          ('ad/c', blob_c.id, 0o100644),
-          ('c', blob_c.id, 0o100644),
+          (b'a', blob_a.id, 0o100644),
+          (b'ad/b', blob_b.id, 0o100644),
+          (b'ad/bd/c', blob_c.id, 0o100755),
+          (b'ad/c', blob_c.id, 0o100644),
+          (b'c', blob_c.id, 0o100644),
           ]
         tree_id = commit_tree(self.store, blobs)
-        self.assertEqual([TreeEntry(p.encode('utf-8'), m, h) for (p, h, m) in blobs],
+        self.assertEqual([TreeEntry(p, m, h) for (p, h, m) in blobs],
                           list(self.store.iter_tree_contents(tree_id)))
 
     def test_iter_tree_contents_include_trees(self):
@@ -147,9 +147,9 @@ class ObjectStoreTests(object):
             self.store.add_object(blob)
 
         blobs = [
-          ('a', blob_a.id, 0o100644),
-          ('ad/b', blob_b.id, 0o100644),
-          ('ad/bd/c', blob_c.id, 0o100755),
+          (b'a', blob_a.id, 0o100644),
+          (b'ad/b', blob_b.id, 0o100644),
+          (b'ad/bd/c', blob_c.id, 0o100755),
           ]
         tree_id = commit_tree(self.store, blobs)
         tree = self.store[tree_id]
@@ -280,6 +280,7 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
                     self.assertEqual((Blob.type_num, b'more yummy data'),
                                      o.get_raw(packed_blob_sha))
 
+
 class TreeLookupPathTests(TestCase):
 
     def setUp(self):
@@ -292,11 +293,11 @@ class TreeLookupPathTests(TestCase):
             self.store.add_object(blob)
 
         blobs = [
-          ('a', blob_a.id, 0o100644),
-          ('ad/b', blob_b.id, 0o100644),
-          ('ad/bd/c', blob_c.id, 0o100755),
-          ('ad/c', blob_c.id, 0o100644),
-          ('c', blob_c.id, 0o100644),
+          (b'a', blob_a.id, 0o100644),
+          (b'ad/b', blob_b.id, 0o100644),
+          (b'ad/bd/c', blob_c.id, 0o100755),
+          (b'ad/c', blob_c.id, 0o100644),
+          (b'c', blob_c.id, 0o100644),
           ]
         self.tree_id = commit_tree(self.store, blobs)
 
@@ -304,22 +305,22 @@ class TreeLookupPathTests(TestCase):
         return self.store[sha]
 
     def test_lookup_blob(self):
-        o_id = tree_lookup_path(self.get_object, self.tree_id, 'a')[1]
+        o_id = tree_lookup_path(self.get_object, self.tree_id, b'a')[1]
         self.assertTrue(isinstance(self.store[o_id], Blob))
 
     def test_lookup_tree(self):
-        o_id = tree_lookup_path(self.get_object, self.tree_id, 'ad')[1]
+        o_id = tree_lookup_path(self.get_object, self.tree_id, b'ad')[1]
         self.assertTrue(isinstance(self.store[o_id], Tree))
-        o_id = tree_lookup_path(self.get_object, self.tree_id, 'ad/bd')[1]
+        o_id = tree_lookup_path(self.get_object, self.tree_id, b'ad/bd')[1]
         self.assertTrue(isinstance(self.store[o_id], Tree))
-        o_id = tree_lookup_path(self.get_object, self.tree_id, 'ad/bd/')[1]
+        o_id = tree_lookup_path(self.get_object, self.tree_id, b'ad/bd/')[1]
         self.assertTrue(isinstance(self.store[o_id], Tree))
 
     def test_lookup_nonexistent(self):
-        self.assertRaises(KeyError, tree_lookup_path, self.get_object, self.tree_id, 'j')
+        self.assertRaises(KeyError, tree_lookup_path, self.get_object, self.tree_id, b'j')
 
     def test_lookup_not_tree(self):
-        self.assertRaises(NotTreeError, tree_lookup_path, self.get_object, self.tree_id, 'ad/b/j')
+        self.assertRaises(NotTreeError, tree_lookup_path, self.get_object, self.tree_id, b'ad/b/j')
 
 # TODO: MissingObjectFinderTests
 

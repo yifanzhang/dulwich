@@ -97,6 +97,7 @@ def get_summary(commit):
     """
     return commit.message.decode('utf-8').splitlines()[0].replace(" ", "-")
 
+
 def unified_diff(a, b, fromfile='', tofile='', n=3):
     """difflib.unified_diff that doesn't write any dates or trailing spaces.
 

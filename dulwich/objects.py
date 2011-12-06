@@ -99,7 +99,7 @@ def filename_to_sha(filename):
 def object_header(num_type, length):
     """Return an object header for the given numeric type and text length."""
     return object_class(num_type).type_name + \
-      b' ' + str(length).encode('utf-8') + b'\0'
+      b' ' + str(length).encode('ascii') + b'\0'
 
 
 def serializable_property(name, docstring=None):
@@ -574,12 +574,8 @@ class ShaFile(object):
     def as_raw_string(self):
         return b"".join(self.as_raw_chunks())
 
-    def __str__(self):
-        s = self.as_raw_string()
-        if isinstance(s, bytes):
-            return s.decode('utf-8')
-        else:
-            return s
+    def __bytes__(self):
+        return self.as_raw_string()
 
     def __hash__(self):
         return hash(self.id)
@@ -983,7 +979,7 @@ class Tag(ShaFile):
             elif field == _TYPE_HEADER:
                 obj_class = object_class(value)
                 if not obj_class:
-                    raise ObjectFormatException("Not a known type: %s" % value.decode('utf-8'))
+                    raise ObjectFormatException("Not a known type: %s" % value.decode('ascii'))
                 self._object_class = obj_class
             elif field == _TAG_HEADER:
                 self._name = value
@@ -1043,7 +1039,7 @@ class TreeEntry(namedtuple('TreeEntry', ['path', 'mode', 'sha'])):
 
         if not isinstance(self.path, bytes) or not isinstance(path, bytes):
             raise TypeError
-        return TreeEntry(posixpath.join(path.decode('utf-8'), self.path.decode('utf-8')).encode('utf-8'), self.mode, self.sha)
+        return TreeEntry(posixpath.join(path, self.path), self.mode, self.sha)
 
 def parse_tree(text, strict=False):
     """Parse a tree text.
@@ -1266,11 +1262,11 @@ class Tree(ShaFile):
         text = []
         for name, mode, sha in self.items():
             if mode & stat.S_IFDIR:
-                kind = "tree"
+                kind = b"tree"
             else:
-                kind = "blob"
-            text.append("%04o %s %s\t%s\n" % (mode, kind, str(sha), name.decode('utf-8')))
-        return "".join(text)
+                kind = b"blob"
+            text.append(("%04o " % mode).encode('ascii') + b" " + kind + b"\t" + name + b"\n")
+        return b"".join(text)
 
     def lookup_path(self, lookup_obj, path):
         """Look up an object in a Git tree.
@@ -1279,7 +1275,7 @@ class Tree(ShaFile):
         :param path: Path to lookup
         :return: A tuple of (mode, SHA) of the resulting path.
         """
-        parts = path.split('/')
+        parts = path.split(b'/')
         sha = self.id
         mode = None
         for p in parts:
@@ -1288,7 +1284,7 @@ class Tree(ShaFile):
             obj = lookup_obj(sha)
             if not isinstance(obj, Tree):
                 raise NotTreeError(sha)
-            mode, sha = obj[p.encode('utf-8')]
+            mode, sha = obj[p]
         return mode, sha
 
 
@@ -1325,7 +1321,7 @@ def format_timezone(offset, negative_utc=False):
     else:
         sign = '+'
     offset = abs(offset)
-    return ('%c%02d%02d' % (sign, offset / 3600, (offset / 60) % 60)).encode('utf-8')
+    return ('%c%02d%02d' % (sign, offset / 3600, (offset / 60) % 60)).encode('ascii')
 
 
 def parse_commit(text):

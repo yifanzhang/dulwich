@@ -63,15 +63,17 @@ from dulwich.repo import (
     )
 from dulwich.objects import (
     Sha1Sum
-)
+    )
+
 
 logger = log_utils.getLogger(__name__)
+
 
 def _force_bytes(text):
     if isinstance(text, Sha1Sum):
         return text.hex_bytes
     elif isinstance(text, str):
-        return sha.encode('utf-8')
+        return text.encode('utf-8')
     elif isinstance(text, bytes):
         return text
     else:
@@ -139,14 +141,12 @@ class DictBackend(Backend):
         self.repos = repos
 
     def open_repository(self, path):
-        if isinstance(path, bytes):
-            path = path.decode('utf-8')
         logger.debug('Opening repository at %s', path)
         try:
             return self.repos[path]
         except KeyError:
-            raise NotGitRepository("No git repository was found at %(path)s",
-                path=path)
+            raise NotGitRepository("No git repository was found at %s",
+                path)
 
     def __enter__(self):
         return self
@@ -166,8 +166,7 @@ class FileSystemBackend(Backend):
         self._known_repos = []
 
     def open_repository(self, path):
-        if isinstance(path, bytes):
-            path = path.decode('utf-8')
+        path = path.decode(sys.getfilesystemencoding())
         logger.debug('opening repository at %s', path)
         repo = Repo(path)
         self._known_repos.append(repo)
@@ -245,6 +244,7 @@ class UploadPackHandler(Handler):
 
     def __init__(self, backend, args, proto, http_req=None,
                  advertise_refs=False):
+        assert type(args[0]) == bytes
         Handler.__init__(self, backend, proto, http_req=http_req)
         self.repo = backend.open_repository(args[0])
         self._graph_walker = None
@@ -646,6 +646,7 @@ class ReceivePackHandler(Handler):
 
     def __init__(self, backend, args, proto, http_req=None,
                  advertise_refs=False):
+        assert type(args[0]) == bytes
         Handler.__init__(self, backend, proto, http_req=http_req)
         self.repo = backend.open_repository(args[0])
         self.advertise_refs = advertise_refs
@@ -783,17 +784,21 @@ class TCPGitRequestHandler(socketserver.StreamRequestHandler):
         with ReceivableProtocol(self.connection.recv, self.wfile.write, None) as proto:
             command, args = proto.read_cmd()
 
-            logger.info('Handling %s request, args="%s"', command.decode('utf-8'),
-              ', '.join(arg.decode('utf-8') for arg in args))
+            logger.info('Handling %s request, args="%s"',
+                command.decode('ascii', 'replace'),
+                ', '.join(arg.decode('ascii') for arg in args))
 
             cls = self.handlers.get(command, None)
             if not isinstance(cls, collections.Callable):
-                raise GitProtocolError('Invalid service %s' % command.decode('utf-8'))
+                raise GitProtocolError('Invalid service %s' % command.decode(
+                    'ascii', 'replace'))
 
+            assert type(args[0]) == bytes
             with cls(self.server.backend, args, proto) as h:
                 h.handle()
 
             logger.info('Finished handling request')
+
 
 class TCPGitServer(socketserver.TCPServer):
 
@@ -863,7 +868,7 @@ def serve_command(handler_cls, argv=sys.argv, backend=None, inf=sys.stdin,
             outf.flush()
 
     with Protocol(inf.read, send_fn, None) as proto:
-        with handler_cls(backend, argv[1:], proto) as handler:
+        with handler_cls(backend, [arg.encode(sys.getfilesystemencoding()) for arg in argv[1:]], proto) as handler:
             # FIXME: Catch exceptions and write a single-line summary to outf.
             handler.handle()
 

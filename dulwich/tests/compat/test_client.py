@@ -112,7 +112,7 @@ class DulwichClientTestBase(object):
     def make_dummy_commit(self, dest):
         b = objects.Blob.from_string(b'hi')
         dest.object_store.add_object(b)
-        t = index.commit_tree(dest.object_store, [('hi', b.id, 0o100644)])
+        t = index.commit_tree(dest.object_store, [(b'hi', b.id, 0o100644)])
         c = objects.Commit()
         c.author = c.committer = b'Foo Bar <foo@example.com>'
         c.author_time = c.commit_time = 0

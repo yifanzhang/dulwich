@@ -80,7 +80,7 @@ def url_prefix(mat):
         original string. Normalized to start with one leading slash and end with
         zero.
     """
-    return '/' + mat.string[:mat.start()].strip('/')
+    return b'/' + mat.string[:mat.start()].encode('utf-8').strip(b'/')
 
 
 def get_repo(backend, mat):
@@ -398,7 +398,7 @@ def main(argv=sys.argv):
     port = 8000
 
     log_utils.default_logging_config()
-    backend = DictBackend({'/': Repo(gitdir)})
+    backend = DictBackend({b'/': Repo(gitdir)})
     app = HTTPGitApplication(backend)
     server = make_server(listen_addr, port, app,
                          handler_class=HTTPGitRequestHandler)

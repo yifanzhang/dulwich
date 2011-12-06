@@ -20,10 +20,8 @@
 
 from itertools import permutations
 from dulwich.diff_tree import (
-    CHANGE_ADD,
     CHANGE_MODIFY,
     CHANGE_RENAME,
-    CHANGE_COPY,
     TreeChange,
     RenameDetector,
     )
@@ -163,8 +161,8 @@ class WalkerTest(TestCase):
         blob_a2 = make_object(Blob, data=b'a2')
         blob_b2 = make_object(Blob, data=b'b2')
         c1, c2 = self.make_linear_commits(
-          2, trees={1: [('a', blob_a1)],
-                    2: [('a', blob_a2), ('b', blob_b2)]})
+          2, trees={1: [(b'a', blob_a1)],
+                    2: [(b'a', blob_a2), (b'b', blob_b2)]})
         e1 = TestWalkEntry(c1, [TreeChange.add((b'a', F, blob_a1.id))])
         e2 = TestWalkEntry(c2, [TreeChange(CHANGE_MODIFY, (b'a', F, blob_a1.id),
                                            (b'a', F, blob_a2.id)),
@@ -177,8 +175,8 @@ class WalkerTest(TestCase):
         blob_a3 = make_object(Blob, data=b'a3')
         c1, c2, c3 = self.make_commits(
           [[1], [2], [3, 1, 2]],
-          trees={1: [('a', blob_a1)], 2: [('b', blob_b2)],
-                 3: [('a', blob_a3), ('b', blob_b2)]})
+          trees={1: [(b'a', blob_a1)], 2: [(b'b', blob_b2)],
+                 3: [(b'a', blob_a3), (b'b', blob_b2)]})
         # a is a modify/add conflict and b is not conflicted.
         changes = [[
           TreeChange(CHANGE_MODIFY, (b'a', F, blob_a1.id), (b'a', F, blob_a3.id)),
@@ -208,9 +206,9 @@ class WalkerTest(TestCase):
         blob_a3 = make_object(Blob, data=b'a3')
         blob_b3 = make_object(Blob, data=b'b3')
         c1, c2, c3 = self.make_linear_commits(
-          3, trees={1: [('a', blob_a1)],
-                    2: [('a', blob_a1), ('x/b', blob_b2)],
-                    3: [('a', blob_a3), ('x/b', blob_b3)]})
+          3, trees={1: [(b'a', blob_a1)],
+                    2: [(b'a', blob_a1), (b'x/b', blob_b2)],
+                    3: [(b'a', blob_a3), (b'x/b', blob_b3)]})
 
         self.assertWalkYields([c3, c2, c1], [c3.id])
         self.assertWalkYields([c3, c1], [c3.id], paths=[b'a'])
@@ -230,9 +228,9 @@ class WalkerTest(TestCase):
         blob_a = make_object(Blob, data=b'a')
         blob_b = make_object(Blob, data=b'b')
         c1, c2, c3 = self.make_linear_commits(
-          3, trees={1: [('x/a', blob_a)],
-                    2: [('b', blob_b), ('x/a', blob_a)],
-                    3: [('b', blob_b), ('x/a', blob_a), ('x/b', blob_b)]})
+          3, trees={1: [(b'x/a', blob_a)],
+                    2: [(b'b', blob_b), (b'x/a', blob_a)],
+                    3: [(b'b', blob_b), (b'x/a', blob_a), (b'x/b', blob_b)]})
 
         self.assertWalkYields([c2], [c3.id], paths=[b'b'])
         self.assertWalkYields([c3, c1], [c3.id], paths=[b'x'])
@@ -241,8 +239,8 @@ class WalkerTest(TestCase):
         blob_a = make_object(Blob, data=b'a')
         blob_b = make_object(Blob, data=b'b')
         c1, c2 = self.make_linear_commits(
-          2, trees={1: [('a', blob_a)],
-                    2: [('a', blob_a), ('b', blob_b)]})
+          2, trees={1: [(b'a', blob_a)],
+                    2: [(b'a', blob_a), (b'b', blob_b)]})
         self.assertWalkYields([c2], [c2.id], paths=[b'b'], max_entries=1)
         self.assertWalkYields([c1], [c1.id], paths=[b'a'], max_entries=1)
 
@@ -252,17 +250,17 @@ class WalkerTest(TestCase):
         blob_a3 = make_object(Blob, data=b'a3')
         x1, y2, m3, m4 = self.make_commits(
           [[1], [2], [3, 1, 2], [4, 1, 2]],
-          trees={1: [('a', blob_a1)],
-                 2: [('a', blob_a2)],
-                 3: [('a', blob_a3)],
-                 4: [('a', blob_a1)]})  # Non-conflicting
+          trees={1: [(b'a', blob_a1)],
+                 2: [(b'a', blob_a2)],
+                 3: [(b'a', blob_a3)],
+                 4: [(b'a', blob_a1)]})  # Non-conflicting
         self.assertWalkYields([m3, y2, x1], [m3.id], paths=[b'a'])
         self.assertWalkYields([y2, x1], [m4.id], paths=[b'a'])
 
     def test_changes_with_renames(self):
         blob = make_object(Blob, data=b'blob')
         c1, c2 = self.make_linear_commits(
-          2, trees={1: [('a', blob)], 2: [('b', blob)]})
+          2, trees={1: [(b'a', blob)], 2: [(b'b', blob)]})
         entry_a = (b'a', F, blob.id)
         entry_b = (b'b', F, blob.id)
         changes_without_renames = [TreeChange.delete(entry_a),
@@ -277,7 +275,7 @@ class WalkerTest(TestCase):
 
     def test_follow_rename(self):
         blob = make_object(Blob, data=b'blob')
-        names = ['a', 'a', 'b', 'b', 'c', 'c']
+        names = [b'a', b'a', b'b', b'b', b'c', b'c']
 
         trees = dict((i + 1, [(n, blob, F)]) for i, n in enumerate(names))
         c1, c2, c3, c4, c5, c6 = self.make_linear_commits(6, trees=trees)
@@ -293,12 +291,12 @@ class WalkerTest(TestCase):
     def test_follow_rename_remove_path(self):
         blob = make_object(Blob, data=b'blob')
         _, _, _, c4, c5, c6 = self.make_linear_commits(
-          6, trees={1: [('a', blob), ('c', blob)],
+          6, trees={1: [(b'a', blob), (b'c', blob)],
                     2: [],
                     3: [],
-                    4: [('b', blob)],
-                    5: [('a', blob)],
-                    6: [('c', blob)]})
+                    4: [(b'b', blob)],
+                    5: [(b'a', blob)],
+                    6: [(b'c', blob)]})
 
         e = lambda n: (n, F, blob.id)
         # Once the path changes to b, we aren't interested in a or c anymore.

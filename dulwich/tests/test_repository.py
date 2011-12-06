@@ -23,7 +23,6 @@ from io import BytesIO
 import os
 import shutil
 import tempfile
-import warnings
 
 from dulwich import errors
 from dulwich.file import (
@@ -345,7 +344,7 @@ class BuildRepoTests(TestCase):
                                  commit_timestamp=12395, commit_timezone=0,
                                  author_timestamp=12395, author_timezone=0)
         self.assertEqual([self._root_commit], r[commit_sha].parents)
-        _, blob_id = tree_lookup_path(r.get_object, r[commit_sha].tree, 'a')
+        _, blob_id = tree_lookup_path(r.get_object, r[commit_sha].tree, b'a')
         self.assertEqual(b'new contents', r[blob_id].data)
 
     def test_commit_deleted(self):
