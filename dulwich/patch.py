@@ -54,6 +54,7 @@ def _make_writer(f):
                 raise TypeError('only strings and bytes supported')
     return _writer
 
+
 def write_commit_patch(f, commit, contents, progress, version=None):
     """Write a individual file patch.
 
@@ -62,14 +63,14 @@ def write_commit_patch(f, commit, contents, progress, version=None):
     :return: tuple with filename and contents
     """
     (num, total) = progress
-    write = _make_writer(f)
+    write = f.write
 
-    write('From ' + commit.id.decode('ascii') + ' ' + time.ctime(commit.commit_time) + '\n')
-    write('From: ' + commit.author.decode('utf-8') + '\n')
-    write('Date: ' + time.strftime("%a, %d %b %Y %H:%M:%S %Z") + '\n')
-    write('Subject: [PATCH ' + str(num) + '/' + str(total) + '] ' + commit.message.decode('utf-8') + '\n')
-    write('\n')
-    write('---\n')
+    write(b'From ' + commit.id + b' ' + time.ctime(commit.commit_time).encode('ascii') + b'\n')
+    write(b'From: ' + commit.author + b'\n')
+    write(b'Date: ' + time.strftime("%a, %d %b %Y %H:%M:%S %Z").encode('ascii') + b'\n')
+    write(b'Subject: [PATCH ' + str(num).encode('ascii') + b'/' + str(total).encode('ascii') + b'] ' + commit.message + b'\n')
+    write(b'\n')
+    write(b'---\n')
     try:
         import subprocess
         p = subprocess.Popen(['diffstat'], stdout=subprocess.PIPE,
@@ -77,16 +78,16 @@ def write_commit_patch(f, commit, contents, progress, version=None):
     except (ImportError, OSError) as e:
         pass # diffstat not available?
     else:
-        (diffstat, _) = p.communicate(contents.encode('utf-8'))
-        write(diffstat.decode('utf-8'))
-        write('\n')
+        (diffstat, _) = p.communicate(contents)
+        write(diffstat)
+        write(b'\n')
     write(contents)
-    write('-- \n')
+    write(b'-- \n')
     if version is None:
         from dulwich import __version__ as dulwich_version
-        write('Dulwich %d.%d.%d\n' % dulwich_version)
+        write(('Dulwich %d.%d.%d\n' % dulwich_version).encode('ascii'))
     else:
-        write('%s\n' % version)
+        write(version + b'\n')
 
 
 def get_summary(commit):

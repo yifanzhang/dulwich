@@ -2,7 +2,7 @@
 
  FEATURES
 
-  * Dulwich ported to Python 3. (Chris Eberle)
+  * Dulwich ported to Python 3. (Chris Eberle, #883315)
 
  BUG FIXES
 
