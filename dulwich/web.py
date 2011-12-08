@@ -164,16 +164,16 @@ def get_info_refs(req, backend, mat):
     params = parse_qs(req.environ['QUERY_STRING'])
     service = params.get('service', [None])[0]
     if service and not req.dumb:
-        handler_cls = req.handlers.get(service.encode('utf-8'), None)
+        handler_cls = req.handlers.get(service.encode('ascii'), None)
         if handler_cls is None:
-            yield req.forbidden(('Unsupported service %s' % service).encode('utf-8'))
+            yield req.forbidden(('Unsupported service %s' % service).encode('ascii'))
             return
         req.nocache()
         write = req.respond(HTTP_OK, 'application/x-%s-advertisement' % service)
         req2 = BytesIO()
         with ReceivableProtocol(req2.read, write, req2.close) as proto:
             with handler_cls(backend, [url_prefix(mat)], proto, http_req=req, advertise_refs=True) as handler:
-                handler.proto.write_pkt_line(('# service=%s\n' % service).encode('utf-8'))
+                handler.proto.write_pkt_line(('# service=%s\n' % service).encode('ascii'))
                 handler.proto.write_pkt_line(None)
                 handler.handle()
     else:

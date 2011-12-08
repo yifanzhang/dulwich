@@ -389,8 +389,9 @@ class DictRefsContainer(RefsContainer):
 class DiskRefsContainer(RefsContainer):
     """Refs container that reads refs from disk."""
 
-    def __init__(self, path):
+    def __init__(self, path, fsenc=None):
         self.path = path
+        self._fsenc = fsenc
         self._packed_refs = None
         self._peeled_refs = None
 
@@ -406,8 +407,8 @@ class DiskRefsContainer(RefsContainer):
                 refname = ("%s/%s" % (dir, filename)).strip("/")
                 # check_ref_format requires at least one /, so we prepend the
                 # base before calling it.
-                if check_ref_format(base + b'/' + refname.encode('utf-8')):
-                    keys.add(refname.encode('utf-8'))
+                if check_ref_format(base + b'/' + refname.encode(self._fsenc)):
+                    keys.add(refname.encode(self._fsenc))
         for key in self.get_packed_refs():
             if key.startswith(base):
                 keys.add(key[len(base):].strip(b'/'))
@@ -421,7 +422,7 @@ class DiskRefsContainer(RefsContainer):
         for root, dirs, files in os.walk(self.refpath(b"refs")):
             dir = root[len(path):].strip(os.path.sep).replace(os.path.sep, "/")
             for filename in files:
-                refname = ("%s/%s" % (dir, filename)).strip("/").encode('utf-8')
+                refname = ("%s/%s" % (dir, filename)).strip("/").encode(self._fsenc)
                 if check_ref_format(refname):
                     keys.add(refname)
         keys.update(self.get_packed_refs())
@@ -431,7 +432,7 @@ class DiskRefsContainer(RefsContainer):
         """Return the disk path of a ref.
 
         """
-        name = name.decode('utf-8')
+        name = name.decode(self._fsenc)
         if os.path.sep != "/":
             name = name.replace("/", os.path.sep)
         return os.path.join(self.path, name)
@@ -658,14 +659,14 @@ def _split_ref_line(line):
     """Split a single ref line into a tuple of SHA1 and name."""
     fields = line.rstrip(b"\n").split(b" ")
     if len(fields) != 2:
-        raise PackedRefsException("invalid ref line '%s'" % line.decode('utf-8'))
+        raise PackedRefsException("invalid ref line %r" % line)
     sha, name = fields
     try:
         Sha1Sum(sha)
     except (AssertionError, TypeError, ObjectFormatException) as e:
         raise PackedRefsException(e)
     if not check_ref_format(name):
-        raise PackedRefsException("invalid ref name '%s'" % name.decode('utf-8'))
+        raise PackedRefsException("invalid ref name %r" % name)
     return (sha, name)
 
 
@@ -760,10 +761,14 @@ class BaseRepo(object):
     def _init_files(self, bare):
         """Initialize a default set of named files."""
         self._put_named_file('description', b"Unnamed repository")
+        if bare:
+            bare_str = b"true"
+        else:
+            bare_str = b"false"
         self._put_named_file('config', (b'[core]\n'
                                         b'repositoryformatversion = 0\n'
                                         b'filemode = true\n'
-                                        b'bare = ' + str(bare).lower().encode('utf-8') + b'\n'
+                                        b'bare = ' + bare_str + b'\n'
                                         b'logallrefupdates = true\n'))
         self._put_named_file(os.path.join('info', 'exclude'), b'')
 
@@ -1036,7 +1041,11 @@ class BaseRepo(object):
 class Repo(BaseRepo):
     """A git repository backed by local disk."""
 
-    def __init__(self, root):
+    def __init__(self, root, fsenc=None):
+        if fsenc is None:
+            self._fsenc = sys.getfilesystemencoding()
+        else:
+            self._fsenc = fsenc
         if os.path.isdir(os.path.join(root, ".git", OBJECTDIR)):
             self.bare = False
             self._controldir = os.path.join(root, ".git")
@@ -1049,7 +1058,7 @@ class Repo(BaseRepo):
         self.path = root
         object_store = DiskObjectStore(os.path.join(self.controldir(),
                                                     OBJECTDIR))
-        refs = DiskRefsContainer(self.controldir())
+        refs = DiskRefsContainer(self.controldir(), fsenc=self._fsenc)
         BaseRepo.__init__(self, object_store, refs)
 
     def controldir(self):

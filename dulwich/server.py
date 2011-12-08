@@ -221,21 +221,21 @@ class Handler(object):
         for cap in caps:
             if cap not in allowable_caps:
                 raise GitProtocolError('Client asked for capability %s that '
-                                       'was not advertised.' % cap.decode('utf-8'))
+                                       'was not advertised.' % cap.decode('ascii'))
 
         for cap in self.required_capabilities():
             if cap not in caps:
                 raise GitProtocolError('Client does not support required '
-                                       'capability %s.' % cap.decode('utf-8'))
+                                       'capability %s.' % cap.decode('ascii'))
 
         self._client_capabilities = set(caps)
         logger.info('Client capabilities: %s',
-          ', '.join(cap.decode('utf-8') for cap in self._client_capabilities))
+          ', '.join(cap.decode('ascii') for cap in self._client_capabilities))
 
     def has_capability(self, cap):
         if self._client_capabilities is None:
             raise GitProtocolError('Server attempted to access capability %s '
-                                   'before asking client' % cap.decode('utf-8'))
+                                   'before asking client' % cap.decode('ascii'))
         return cap in self._client_capabilities
 
 

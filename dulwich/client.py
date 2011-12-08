@@ -351,7 +351,7 @@ class GitClient(object):
                     else:
                         raise AssertionError(
                             "%s not in ('continue', 'ready', 'common)" %
-                            parts[2].decode('utf-8'))
+                            parts[2].decode('ascii'))
             have = next(graph_walker)
         proto.write_pkt_line(b'done\n')
 
@@ -513,7 +513,7 @@ class TCPGitClient(TraditionalGitClient):
                          report_activity=self._report_activity)
         if path.startswith("/~"):
             path = path[1:]
-        proto.send_cmd(b'git-' + cmd.encode('utf-8'), path.encode('utf-8'), b'host=' + self._host.encode('utf-8'))
+        proto.send_cmd(b'git-' + cmd.encode('ascii'), path.encode('utf-8'), b'host=' + self._host.encode('utf-8'))
         return proto, lambda: _fileno_can_read(s)
 
     def close(self):
@@ -662,7 +662,7 @@ class HttpGitClient(GitClient):
         if not self.dumb:
             # The first line should mention the service
             pkts = list(proto.read_pkt_seq())
-            if pkts != [(('# service=%s\n' % service).encode('utf-8'))]:
+            if pkts != [(('# service=%s\n' % service).encode('ascii'))]:
                 raise GitProtocolError(
                     "unexpected first line %r from smart server" % pkts)
         return self._read_refs(proto)
