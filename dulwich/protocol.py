@@ -138,8 +138,6 @@ class Protocol(object):
                         if plen == 0:
                             self._readahead = None
                             continue
-                    if isinstance(part, str):
-                        part = part.encode('utf-8')
                     buf.write(part)
                     remaining -= plen
                 buf.seek(0)

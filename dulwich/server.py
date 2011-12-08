@@ -839,8 +839,8 @@ def main(argv=sys.argv):
     server.serve_forever()
 
 
-def serve_command(handler_cls, argv=sys.argv, backend=None, inf=sys.stdin,
-                  outf=sys.stdout):
+def serve_command(handler_cls, argv=sys.argv, backend=None, inf=sys.stdin.buffer,
+                  outf=sys.stdout.buffer):
     """Serve a single command.
 
     This is mostly useful for the implementation of commands used by e.g. git+ssh.
@@ -855,17 +855,10 @@ def serve_command(handler_cls, argv=sys.argv, backend=None, inf=sys.stdin,
     if backend is None:
         backend = FileSystemBackend()
 
-    if hasattr(outf, 'buffer'):
-        # it's a text writer like stdout or something
-        def send_fn(data):
-            outf.flush()
-            outf.buffer.write(data)
-            outf.flush()
-    else:
-        # it's a binary writer
-        def send_fn(data):
-            outf.write(data)
-            outf.flush()
+    # it's a binary writer
+    def send_fn(data):
+        outf.write(data)
+        outf.flush()
 
     with Protocol(inf.read, send_fn, None) as proto:
         with handler_cls(backend, [arg.encode(sys.getfilesystemencoding()) for arg in argv[1:]], proto) as handler:
