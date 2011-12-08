@@ -77,14 +77,26 @@ def _decompress(string):
     dcomped += dcomp.flush()
     return dcomped
 
+def sha_to_hex(sha):
+    """Takes a string and returns the hex of the sha within"""
+    hexsha = binascii.hexlify(sha)
+    assert len(hexsha) == 40, "Incorrect length of sha1 string: %d" % hexsha
+    return hexsha
+
+def hex_to_sha(hex):
+    """Takes a hex sha and returns a binary sha"""
+    assert len(hex) == 40, "Incorrent length of hexsha: %s" % hex
+    return binascii.unhexlify(hex)
+
 def sha_to_filename(path, sha):
     """Takes a hex sha and returns its filename relative to the given path."""
-    dir = str(sha)[:2]
-    file = str(sha)[2:]
+    dir = sha[:2].decode('ascii')
+    file = sha[2:].decode('ascii')
     # Check from object dir
     return os.path.join(path, dir, file)
 
-def filename_to_sha(filename):
+
+def filename_to_hex(filename):
     """Takes an object filename and returns its corresponding hex sha."""
     # grab the last (up to) two path components
     names = filename.rsplit(os.path.sep, 2)[-2:]
@@ -92,8 +104,9 @@ def filename_to_sha(filename):
     assert len(names) == 2, errmsg
     base, rest = names
     assert len(base) == 2 and len(rest) == 38, errmsg
-    hex = base + rest
-    return Sha1Sum(hex)
+    hex = (base + rest).encode('ascii')
+    hex_to_sha(hex)
+    return hex
 
 
 def object_header(num_type, length):
@@ -125,8 +138,8 @@ def object_class(type):
 
 def check_hexsha(hex, error_msg):
     try:
-        Sha1Sum(hex, error_message=error_msg).bytes
-    except (TypeError, AssertionError):
+        hex_to_sha(hex)
+    except (binascii.Error, AssertionError):
         raise ObjectFormatException("%s %s" % (error_msg, hex))
 
 
@@ -147,373 +160,20 @@ def check_identity(identity, error_msg):
         raise ObjectFormatException(error_msg)
 
 
-def _as_sha(obj):
-    """Try really hard to get a Sha1Sum representation of an object
-    or raise an exception if it can't be done.
+class FixedSha(object):
+    """SHA object that behaves like hashlib's but is given a fixed value."""
 
-    :param obj: Some object that you want represented as a Sha1Sum
-    :return: A Sha1Sum object
-    """
-    if isinstance(obj, Sha1Sum):
-        return obj
-    else:
-        return Sha1Sum(obj)
+    __slots__ = ('_hexsha', '_sha')
 
-
-class Sha1Sum(object):
-    """
-    Represent a sha-1 sum as bytes, ascii bytes, and a unicode string
-    """
-
-    __slots__ = ('_string', '_hex_bytes', '_bytes',
-                 '_get_string', '_get_bytes', '_get_hex_bytes')
-
-    def __init__(self, sha, error_message=None, resolve=False,
-                 lazy_errors=False):
-        """Create a SHA-1 sum
-
-        :param sha: One of (a) a length-20 raw bytes object, (b) a length-40
-            bytes object consisting of ascii characters only, or (c) a
-            length-40 python string.
-        :param error_message: An error message to return if there's a problem
-        :param resolve: Automatically fill in the other representations of this
-            sha1-sum. If False, the other representations get computed on
-            demand.
-        :param lazy_errors: If True, no errors are thrown until someone asks
-            for the value. Otherwise the errors are thrown immediately.
-        """
-
-        def _exception(default_msg, cls=ObjectFormatException):
-            if not error_message:
-                ex = cls("{0}: {1}".format(default_msg, repr(sha)))
-            else:
-                ex = cls("{0}: {1}".format(error_message, repr(sha)))
-
-            if not lazy_errors:
-                raise ex
-            else:
-                def _throw():
-                    raise ex
-
-                self._string = None
-                self._hex_bytes = None
-                self._bytes = None
-                self._get_string = _throw
-                self._get_bytes = _throw
-                self._get_hex_bytes = _throw
-
-        if isinstance(sha, str):
-            # The only kind of actual strings accepted are len 40 hex strings
-
-            self._string = sha
-            self._hex_bytes = None
-            self._bytes = None
-
-            # Could be a bit of a performance drain
-            if not _SREX.match(sha):
-                _exception('invalid sha string')
-                return
-
-            self._get_string = None
-            self._get_bytes = lambda: binascii.unhexlify(sha.encode('utf-8'))
-            self._get_hex_bytes = lambda: sha.encode('utf-8')
-
-        elif isinstance(sha, bytes):
-            # Bytes objects could be a raw digest or an encoded hex string
-
-            if len(sha) == 20:
-                # It's a raw digest
-
-                self._string = None
-                self._hex_bytes = None
-                self._bytes = sha
-
-                self._get_string = \
-                  lambda: binascii.hexlify(sha).decode('utf-8')
-                self._get_hex_bytes = lambda: binascii.hexlify(sha)
-                self._get_bytes = None
-
-            elif len(sha) == 40:
-                # It's probably an encoded hex string
-
-                self._string = None
-                self._hex_bytes = sha
-                self._bytes = None
-
-                # Could be a bit of a performance drain
-                if not _HBREX.match(sha):
-                    _exception('invalid sha byte string')
-                    return
-
-                self._get_string = lambda: sha.decode('utf-8')
-                self._get_hex_bytes = None
-                self._get_bytes = lambda: binascii.unhexlify(sha)
-
-            else:
-                # It's garbage
-                _exception('unrecognized bytes object')
-                return
-
-        elif isinstance(sha, Sha1Sum):
-            # It's another Sha1Sum object, copy it
-
-            self._string = sha._string
-            self._hex_bytes = sha._hex_bytes
-            self._bytes = sha._bytes
-            self._get_string = sha._get_string
-            self._get_hex_bytes = sha._get_hex_bytes
-            self._get_bytes = sha._get_bytes
-
-        elif hasattr(sha, 'digest') and callable(sha.digest):
-            # It could be a hashlib sha1 object, let's try calling it...
-
-            self._string = None
-            self._hex_bytes = None
-            self._bytes = sha.digest()
-
-            # digest() should return a bytes object
-            if not isinstance(self._bytes, bytes):
-                _exception('unrecognized sha object')
-                return
-
-            # Damn, it looked so promising
-            if len(self._bytes) != 20:
-                _exception('unrecognized sha object')
-                return
-
-            self._get_string = \
-              lambda: binascii.hexlify(self._bytes).decode('utf-8')
-            self._get_hex_bytes = lambda: binascii.hexlify(self._bytes)
-            self._get_bytes = None
-
-        else:
-            _exception('expecting a SHA-1 hash as a bytes or str object', cls=TypeError)
-            return
-
-        if resolve:
-            # Go ahead and fill in all the other representations up front
-            if self._string is None:
-                self._string = self._get_string()
-            if self._hex_bytes is None:
-                self._hex_bytes = self._get_hex_bytes()
-            if self._bytes is None:
-                self._bytes = self._get_bytes()
-            self._get_string = None
-            self._get_hex_bytes = None
-            self._get_bytes = None
-
-    @property
-    def string(self):
-        """Get the sha-1 sum as a hex string
-
-        :return: A hex string representing a sha-1 sum
-        """
-        if self._string is None:
-            self._string = self._get_string()
-            self._get_string = None
-        return self._string
-
-    @property
-    def short_string(self):
-        """Get the shortid version of a hex string
-
-        :return: The first 7 characters of the hex string
-        """
-        return self.string[:7]
-
-    @property
-    def hex_bytes(self):
-        """Get the sha-1 sum as a hex string, encoded into bytes
-
-        :return: A hex byte-string representing a sha-1 sum
-        """
-        if self._hex_bytes is None:
-            self._hex_bytes = self._get_hex_bytes()
-            self._get_hex_bytes = None
-        return self._hex_bytes
-
-    @property
-    def short_hex_bytes(self):
-        """Get the shortid version of a hex string
-
-        :return: The first 7 bytes of the hex bytes string
-        """
-        return self.hex_bytes[:7]
-
-    @property
-    def bytes(self):
-        """Get the sha-1 sum as raw bytes
-
-        :return: A raw byte-string representing a sha-1 sum
-        """
-        if self._bytes is None:
-            self._bytes = self._get_bytes()
-            self._get_bytes = None
-        return self._bytes
+    def __init__(self, hexsha):
+        self._hexsha = hexsha
+        self._sha = hex_to_sha(hexsha)
 
     def digest(self):
-        """Make Sha1Sum behave like hashlib's digest function
-
-        :return: A raw byte-string representing a sha-1 sum
-        """
-        return self.bytes
+        return self._sha
 
     def hexdigest(self):
-        """Make Sha1Sum behave like hashlib's hexdigest function
-
-        :return: A hex string representing a sha-1 sum
-        """
-        return self.string
-
-    @property
-    def digest_size(self):
-        """Make Sha1Sum behave like hashlib's digest_size property
-
-        :return: The size of whatever digest returns
-        """
-        return len(self.bytes)
-
-    @property
-    def name(self):
-        """Make Sha1Sum behave like hashlib's name property
-
-        :return: The type of hash contained here
-        """
-        return 'sha1'
-
-    def __bytes__(self):
-        """Called by bytes(...)
-
-        :return: A raw byte-string representing a sha-1 sum
-        """
-        return self.bytes
-
-    def __str__(self):
-        """Called by str(...)
-
-        :return: A hex string representing a sha-1 sum
-        """
-        return self.string
-
-    def __repr__(self):
-        """Called by repr(...)
-
-        :return: A string representing the Sha1Sum object
-        """
-        return "{classname}('{hexsha}')".\
-            format(classname=self.__class__.__name__, hexsha=self.string)
-
-    def __eq__(self, other):
-        """Test two Sha1Sum objects for equality
-
-        :param other: A sha1-like object (Sha1Sum, len 20 bytes, len 40
-            string / bytes)
-        :return: True if the two Sha1Sum objects are equal, False otherwise
-        """
-        try:
-            return self.bytes == _as_sha(other).bytes
-        except (TypeError, ObjectFormatException):
-            return False
-
-    def __ne__(self, other):
-        """Test two Sha1Sum objects for inequality
-
-        :param other: A sha1-like object (Sha1Sum, len 20 bytes, len 40
-            string / bytes)
-        :return: False if the two Sha1Sum objects are equal, True otherwise
-        """
-        return not (self == other)
-
-    def __lt__(self, other):
-        """Test to see if this Sha1Sum is less than another one
-
-        :param other: A sha1-like object (Sha1Sum, len 20 bytes, len 40
-            string / bytes)
-        :return: True if this one's sha1-sum is less than other's, False
-            otherwise
-        """
-        return self.bytes < _as_sha(other).bytes
-
-    def __le__(self, other):
-        """Test to see if this Sha1Sum is less than or equal to another one
-
-        :param other: A sha1-like object (Sha1Sum, len 20 bytes, len 40
-            string / bytes)
-        :return: True if this one's sha1-sum is less than or equal to other's,
-            False otherwise
-        """
-        return self.bytes <= _as_sha(other).bytes
-
-    def __gt__(self, other):
-        """Test to see if this Sha1Sum is greater than another one
-
-        :param other: A sha1-like object (Sha1Sum, len 20 bytes, len 40
-            string / bytes)
-        :return: True if this one's sha1-sum is greater than other's, False
-            otherwise
-        """
-        return self.bytes > _as_sha(other).bytes
-
-    def __ge__(self, other):
-        """Test to see if this Sha1Sum is greater than or equal to another one
-
-        :param other: A sha1-like object (Sha1Sum, len 20 bytes, len 40
-            string / bytes)
-        :return: True if this one's sha1-sum is greater than or equal to
-            other's, False otherwise
-        """
-        return self.bytes >= _as_sha(other).bytes
-
-    def __hash__(self):
-        """Get a hashed representation of this object. Since a Sha1Sum object
-            is representing something which already *is* a hash, we'll just go
-            ahead and use that.
-
-        :return: An integer representation of the hash
-        """
-        return hash(self.bytes)
-
-    def __contains__(self, text):
-        """Try very hard to emulate the __contains__ capabilities of a string
-
-        :param text: A hex string of a partial sha-1 sum (string or bytes)
-        :return: True if this Sha1Sum contains the given string
-        """
-
-        if isinstance(text, str):
-            return text in self.string
-        elif isinstance(text, bytes):
-            return text in self.hex_bytes
-        else:
-            raise TypeError(text)
-
-    def startswith(self, text):
-        """Try very hard to emulate the startswith capabilities of a string
-
-        :param text: A hex string of a partial sha-1 sum (string or bytes)
-        :return: True if this Sha1Sum starts with the given string
-        """
-
-        if isinstance(text, str):
-            return self.string.startswith(text)
-        elif isinstance(text, bytes):
-            return self.hex_bytes.startswith(text)
-        else:
-            raise TypeError(text)
-
-    def endswith(self, text):
-        """Try very hard to emulate the endswith capabilities of a string
-
-        :param text: A hex string of a partial sha-1 sum (string or bytes)
-        :return: True if this Sha1Sum ends with the given string
-        """
-
-        if isinstance(text, str):
-            return self.string.endswith(text)
-        elif isinstance(text, bytes):
-            return self.hex_bytes.endswith(text)
-        else:
-            raise TypeError(text)
+        return self._hexsha.decode('ascii')
 
 
 class ShaFile(object):
@@ -681,7 +341,7 @@ class ShaFile(object):
         with GitFile(path, 'rb') as f:
             obj = cls.from_file(f)
             obj._path = path
-            obj._sha = filename_to_sha(path)
+            obj._sha = FixedSha(filename_to_hex(path))
             obj._file = None
             obj._magic = None
             return obj
@@ -790,7 +450,7 @@ class ShaFile(object):
 
     @property
     def id(self):
-        return Sha1Sum(self.sha().hexdigest())
+        return self.sha().hexdigest().encode('ascii')
 
     def get_type(self):
         return self.type_num
@@ -951,7 +611,7 @@ class Tag(ShaFile):
     def _serialize(self):
         chunks = []
         chunks.append(_OBJECT_HEADER + b' ' +
-                      self._object_sha.hex_bytes + b'\n')
+                      self._object_sha + b'\n')
         chunks.append(_TYPE_HEADER + b' ' +
                       self._object_class.type_name + b'\n')
         chunks.append(_TAG_HEADER + b' ' +
@@ -975,7 +635,7 @@ class Tag(ShaFile):
         self._tagger = None
         for field, value in parse_tag(b"".join(chunks)):
             if field == _OBJECT_HEADER:
-                self._object_sha = Sha1Sum(value, lazy_errors=True)
+                self._object_sha = value
             elif field == _TYPE_HEADER:
                 obj_class = object_class(value)
                 if not obj_class:
@@ -1041,6 +701,7 @@ class TreeEntry(namedtuple('TreeEntry', ['path', 'mode', 'sha'])):
             raise TypeError
         return TreeEntry(posixpath.join(path, self.path), self.mode, self.sha)
 
+
 def parse_tree(text, strict=False):
     """Parse a tree text.
 
@@ -1066,7 +727,8 @@ def parse_tree(text, strict=False):
         sha = text[name_end+1:count]
         if len(sha) != 20:
             raise ObjectFormatException("Sha has invalid length")
-        yield (name, mode, Sha1Sum(sha))
+        hexsha = sha_to_hex(sha)
+        yield (name, mode, hexsha)
 
 
 def serialize_tree(items):
@@ -1076,7 +738,7 @@ def serialize_tree(items):
     :return: Serialized tree text as chunks
     """
     for name, mode, sha in items:
-        yield ("%04o " % mode).encode('ascii') + name + b'\0' + bytes(sha)
+        yield ("%04o " % mode).encode('ascii') + name + b'\0' + hex_to_sha(sha)
 
 
 def cmp_to_key(mycmp):
@@ -1098,6 +760,7 @@ def cmp_to_key(mycmp):
             return mycmp(self.obj, other.obj) != 0
     return K
 
+
 def sorted_tree_items(entries, name_order):
     """Iterate over a tree entries dictionary.
 
@@ -1114,8 +777,8 @@ def sorted_tree_items(entries, name_order):
         if not isinstance(mode, int):
             raise TypeError('Expected integer/long for mode, got %r' % mode)
         mode = int(mode)
-        if not isinstance(hexsha, Sha1Sum):
-            raise TypeError('Expected a Sha1Sum for SHA, got %r' % hexsha)
+        if not isinstance(hexsha, bytes):
+            raise TypeError('Expected byes for SHA, got %r' % hexsha)
         yield TreeEntry(name, mode, hexsha)
 
 
@@ -1168,7 +831,7 @@ class Tree(ShaFile):
 
         :param name: The name of the entry, as a string.
         :param value: A tuple of (mode, sha), where mode is the mode of the
-            entry as an integral type and sha is the Sha1Sum of the entry as
+            entry as an integral type and sha is the sha1 of the entry as
             a string.
         """
         mode, sha = value
@@ -1362,9 +1025,9 @@ class Commit(ShaFile):
 
         for field, value in parse_commit(b''.join(self._chunked_text)):
             if field == _TREE_HEADER:
-                self._tree = Sha1Sum(value)
+                self._tree = value
             elif field == _PARENT_HEADER:
-                self._parents.append(Sha1Sum(value))
+                self._parents.append(value)
             elif field == _AUTHOR_HEADER:
                 self._author, timetext, timezonetext = value.rsplit(b" ", 2)
                 self._author_time = int(timetext)
@@ -1420,9 +1083,9 @@ class Commit(ShaFile):
 
     def _serialize(self):
         chunks = []
-        chunks.append(_TREE_HEADER + b' ' + self._tree.hex_bytes + b'\n')
+        chunks.append(_TREE_HEADER + b' ' + self._tree + b'\n')
         for p in self._parents:
-            chunks.append(_PARENT_HEADER + b' ' + p.hex_bytes + b'\n')
+            chunks.append(_PARENT_HEADER + b' ' + p + b'\n')
         chunks.append(_AUTHOR_HEADER + b' ' +
                       self._author + b' ' +
                       str(self._author_time).encode('ascii') + b' ' +

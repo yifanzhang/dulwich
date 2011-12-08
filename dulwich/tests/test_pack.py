@@ -40,8 +40,8 @@ from dulwich.objects import (
     Blob,
     Commit,
     Tree,
-    Blob,
-    Sha1Sum,
+    hex_to_sha,
+    sha_to_hex,
     )
 from dulwich.pack import (
     OFS_DELTA,
@@ -75,10 +75,10 @@ from .utils import (
     build_pack,
     )
 
-pack1_sha = Sha1Sum('bc63ddad95e7321ee734ea11a7a62d314e0d7481')
-a_sha = Sha1Sum('6f670c0fb53f9463760b7295fbb814e965fb20c8')
-tree_sha = Sha1Sum('b2a2766a2879c209ab1176e7e778b81ae422eeaa')
-commit_sha = Sha1Sum('f18faa16531ac570a3fdc8c7ca16682548dafd12')
+pack1_sha = b'bc63ddad95e7321ee734ea11a7a62d314e0d7481'
+a_sha = b'6f670c0fb53f9463760b7295fbb814e965fb20c8'
+tree_sha = b'b2a2766a2879c209ab1176e7e778b81ae422eeaa'
+commit_sha = b'f18faa16531ac570a3fdc8c7ca16682548dafd12'
 
 
 class PackTests(TestCase):
@@ -94,14 +94,14 @@ class PackTests(TestCase):
 
     def get_pack_index(self, sha):
         """Returns a PackIndex from the datadir with the given sha"""
-        return load_pack_index(os.path.join(self.datadir, 'pack-%s.idx' % sha))
+        return load_pack_index(os.path.join(self.datadir, 'pack-%s.idx' % sha.decode('ascii')))
 
     def get_pack_data(self, sha):
         """Returns a PackData object from the datadir with the given sha"""
-        return PackData(os.path.join(self.datadir, 'pack-%s.pack' % sha))
+        return PackData(os.path.join(self.datadir, 'pack-%s.pack' % sha.decode('ascii')))
 
     def get_pack(self, sha):
-        return Pack(os.path.join(self.datadir, 'pack-%s' % sha))
+        return Pack(os.path.join(self.datadir, 'pack-%s' % sha.decode('ascii')))
 
     def assertSucceeds(self, func, *args, **kwargs):
         try:
@@ -127,10 +127,10 @@ class PackIndexTests(PackTests):
 
     def test_get_stored_checksum(self):
         p = self.get_pack_index(pack1_sha)
-        self.assertEqual(Sha1Sum('f2848e2ad16f329ae1c92e3b95e91888daa5bd01'),
-                         p.get_stored_checksum())
-        self.assertEqual(Sha1Sum('721980e866af9a5f93ad674144e1459b8ba3e7b7'),
-                         p.get_pack_checksum())
+        self.assertEqual(b'f2848e2ad16f329ae1c92e3b95e91888daa5bd01',
+                         sha_to_hex(p.get_stored_checksum()))
+        self.assertEqual(b'721980e866af9a5f93ad674144e1459b8ba3e7b7',
+                         sha_to_hex(p.get_pack_checksum()))
 
     def test_index_check(self):
         p = self.get_pack_index(pack1_sha)
@@ -138,11 +138,11 @@ class PackIndexTests(PackTests):
 
     def test_iterentries(self):
         p = self.get_pack_index(pack1_sha)
-        entries = [(Sha1Sum(s), o, c) for s, o, c in p.iterentries()]
+        entries = [(sha_to_hex(s), o, c) for s, o, c in p.iterentries()]
         self.assertEqual([
-          (Sha1Sum('6f670c0fb53f9463760b7295fbb814e965fb20c8'), 178, None),
-          (Sha1Sum('b2a2766a2879c209ab1176e7e778b81ae422eeaa'), 138, None),
-          (Sha1Sum('f18faa16531ac570a3fdc8c7ca16682548dafd12'), 12, None)
+          (b'6f670c0fb53f9463760b7295fbb814e965fb20c8', 178, None),
+          (b'b2a2766a2879c209ab1176e7e778b81ae422eeaa', 138, None),
+          (b'f18faa16531ac570a3fdc8c7ca16682548dafd12', 12, None)
           ], entries)
 
     def test_iter(self):
@@ -184,7 +184,7 @@ class TestPackData(PackTests):
             pass
 
     def test_from_file(self):
-        path = os.path.join(self.datadir, 'pack-%s.pack' % str(pack1_sha))
+        path = os.path.join(self.datadir, 'pack-%s.pack' % pack1_sha.decode('ascii'))
         with PackData.from_file(open(path, 'rb'), os.path.getsize(path)) as p:
             pass
 
@@ -205,8 +205,8 @@ class TestPackData(PackTests):
                            b'1174945067 +0100\n'
                            b'\n'
                            b'Test commit\n')
-            blob_sha = Sha1Sum('6f670c0fb53f9463760b7295fbb814e965fb20c8')
-            tree_data = b'100644 a\0' + bytes(blob_sha)
+            blob_sha = b'6f670c0fb53f9463760b7295fbb814e965fb20c8'
+            tree_data = b'100644 a\0' + hex_to_sha(blob_sha)
             actual = []
             for offset, type_num, chunks, crc32 in p.iterobjects():
                 actual.append((offset, type_num, b''.join(chunks), crc32))
@@ -218,11 +218,11 @@ class TestPackData(PackTests):
 
     def test_iterentries(self):
         with self.get_pack_data(pack1_sha) as p:
-            entries = set((Sha1Sum(s), o, c) for s, o, c in p.iterentries())
+            entries = set([(sha_to_hex(s), o, c) for s, o, c in p.iterentries()])
             self.assertEqual(set([
-              (Sha1Sum('6f670c0fb53f9463760b7295fbb814e965fb20c8'), 178, 1373561701),
-              (Sha1Sum('b2a2766a2879c209ab1176e7e778b81ae422eeaa'), 138, 912998690),
-              (Sha1Sum('f18faa16531ac570a3fdc8c7ca16682548dafd12'), 12, 3775879613),
+              (b'6f670c0fb53f9463760b7295fbb814e965fb20c8', 178, 1373561701),
+              (b'b2a2766a2879c209ab1176e7e778b81ae422eeaa', 138, 912998690),
+              (b'f18faa16531ac570a3fdc8c7ca16682548dafd12', 12, 3775879613),
               ]), entries)
 
     def test_create_index_v1(self):
@@ -292,13 +292,13 @@ class TestPack(PackTests):
         with self.get_pack(pack1_sha) as p:
             obj = p[a_sha]
             self.assertEqual(obj.type_name, b'blob')
-            self.assertEqual(Sha1Sum(obj.sha()), a_sha)
+            self.assertEqual(obj.id, a_sha)
             obj = p[tree_sha]
             self.assertEqual(obj.type_name, b'tree')
-            self.assertEqual(Sha1Sum(obj.sha()), tree_sha)
+            self.assertEqual(obj.id, tree_sha)
             obj = p[commit_sha]
             self.assertEqual(obj.type_name, b'commit')
-            self.assertEqual(Sha1Sum(obj.sha()), commit_sha)
+            self.assertEqual(obj.id, commit_sha)
 
     def test_copy(self):
         with self.get_pack(pack1_sha) as origpack:
@@ -358,7 +358,7 @@ class TestPack(PackTests):
 
     def test_name(self):
         with self.get_pack(pack1_sha) as p:
-            self.assertEqual(pack1_sha, Sha1Sum(p.name()))
+            self.assertEqual(pack1_sha, p.name())
 
     def test_length_mismatch(self):
         with self.get_pack_data(pack1_sha) as data:
@@ -437,7 +437,7 @@ class WritePackTests(TestCase):
             self.assertEqual(sha_a.digest(), sha_b.digest())
 
 
-pack_checksum = Sha1Sum('721980e866af9a5f93ad674144e1459b8ba3e7b7')
+pack_checksum = hex_to_sha(b'721980e866af9a5f93ad674144e1459b8ba3e7b7')
 
 
 class BaseTestPackIndexWriting(object):
@@ -457,7 +457,7 @@ class BaseTestPackIndexWriting(object):
         self.assertEqual(0, len(idx))
 
     def test_single(self):
-        entry_sha = Sha1Sum('6f670c0fb53f9463760b7295fbb814e965fb20c8')
+        entry_sha = hex_to_sha(b'6f670c0fb53f9463760b7295fbb814e965fb20c8')
         my_entries = [(entry_sha, 178, 42)]
         idx = self.index('single.idx', my_entries, pack_checksum)
         self.assertEqual(idx.get_pack_checksum(), pack_checksum)
@@ -842,7 +842,7 @@ class DeltaChainIteratorTests(TestCase):
                              store=self.store)
         pack_iter = self.make_pack_iter(f)
         self.assertEntriesMatch([0], entries, pack_iter)
-        self.assertEqual([Sha1Sum(blob.id)], pack_iter.ext_refs())
+        self.assertEqual([hex_to_sha(blob.id)], pack_iter.ext_refs())
 
     def test_ext_ref_chain(self):
         blob, = self.store_blobs([b'blob'])
@@ -853,7 +853,7 @@ class DeltaChainIteratorTests(TestCase):
           ], store=self.store)
         pack_iter = self.make_pack_iter(f)
         self.assertEntriesMatch([1, 0], entries, pack_iter)
-        self.assertEqual([Sha1Sum(blob.id)], pack_iter.ext_refs())
+        self.assertEqual([hex_to_sha(blob.id)], pack_iter.ext_refs())
 
     def test_ext_ref_multiple_times(self):
         blob, = self.store_blobs([b'blob'])
@@ -864,7 +864,7 @@ class DeltaChainIteratorTests(TestCase):
           ], store=self.store)
         pack_iter = self.make_pack_iter(f)
         self.assertEntriesMatch([0, 1], entries, pack_iter)
-        self.assertEqual([Sha1Sum(blob.id)], pack_iter.ext_refs())
+        self.assertEqual([hex_to_sha(blob.id)], pack_iter.ext_refs())
 
     def test_multiple_ext_refs(self):
         b1, b2 = self.store_blobs([b'foo', b'bar'])
@@ -875,7 +875,7 @@ class DeltaChainIteratorTests(TestCase):
           ], store=self.store)
         pack_iter = self.make_pack_iter(f)
         self.assertEntriesMatch([0, 1], entries, pack_iter)
-        self.assertEqual([Sha1Sum(b1.id), Sha1Sum(b2.id)],
+        self.assertEqual([hex_to_sha(blob.id) for blob in [b1, b2]],
                          pack_iter.ext_refs())
 
     def test_bad_ext_ref_non_thin_pack(self):

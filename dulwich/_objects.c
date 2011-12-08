@@ -31,23 +31,22 @@ size_t rep_strnlen(char *text, size_t maxlen)
 #define strnlen rep_strnlen
 #endif
 
-static PyObject *tree_entry_cls, *sha1sum_cls;
+#define bytehex(x) (((x)<0xa)?('0'+(x)):('a'-0xa+(x)))
+
+static PyObject *tree_entry_cls;
 static PyObject *object_format_exception_cls;
 
 
-static PyObject *bytes_to_pysha(const unsigned char *sha) {
-	PyObject* bytes = PyBytes_FromStringAndSize((const char*)sha, 20);
-	if(bytes == NULL) {
-		return NULL;
+static PyObject *sha_to_pyhex(const unsigned char *sha)
+{
+	char hexsha[41];
+	int i;
+	for (i = 0; i < 20; i++) {
+		hexsha[i*2] = bytehex((sha[i] & 0xF0) >> 4);
+		hexsha[i*2+1] = bytehex(sha[i] & 0x0F);
 	}
 
-	PyObject* pysha = PyObject_CallFunctionObjArgs(sha1sum_cls, bytes, NULL);
-	Py_DECREF(bytes);
-	if(pysha == NULL) {
-		return NULL;
-	}
-
-	return pysha;
+	return PyBytes_FromStringAndSize(hexsha, 40);
 }
 
 static PyObject *py_parse_tree(PyObject *self, PyObject *args, PyObject *kw)
@@ -110,7 +109,7 @@ static PyObject *py_parse_tree(PyObject *self, PyObject *args, PyObject *kw)
 			return NULL;
 		}
 
-		sha = bytes_to_pysha((unsigned char *)text+namelen+1);
+		sha = sha_to_pyhex((unsigned char *)text+namelen+1);
 		if(sha == NULL) {
 			Py_DECREF(ret);
 			Py_DECREF(name);
@@ -220,8 +219,8 @@ static PyObject *py_sorted_tree_items(PyObject *self, PyObject *args)
 		}
 
 		py_sha = PyTuple_GET_ITEM(value, 1);
-		if(1 != PyObject_IsInstance(py_sha, sha1sum_cls)) {
-			PyErr_SetString(PyExc_TypeError, "SHA is not a sha1sum_cls object");
+		if (!PyBytes_Check(py_sha)) {
+			PyErr_SetString(PyExc_TypeError, "SHA is not a bytesstring");
 			goto error;
 		}
 
@@ -299,10 +298,7 @@ PyObject *PyInit__objects(void) {
 		return NULL;
 
 	tree_entry_cls = PyObject_GetAttrString(objects_mod, "TreeEntry");
-	sha1sum_cls = PyObject_GetAttrString(objects_mod, "Sha1Sum");
 	Py_DECREF(objects_mod);
-	if (tree_entry_cls == NULL || sha1sum_cls == NULL)
-		return NULL;
 
 	return m;
 }

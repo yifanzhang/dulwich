@@ -64,7 +64,7 @@ def write_commit_patch(f, commit, contents, progress, version=None):
     (num, total) = progress
     write = _make_writer(f)
 
-    write('From ' + str(commit.id) + ' ' + time.ctime(commit.commit_time) + '\n')
+    write('From ' + commit.id.decode('ascii') + ' ' + time.ctime(commit.commit_time) + '\n')
     write('From: ' + commit.author.decode('utf-8') + '\n')
     write('Date: ' + time.strftime("%a, %d %b %Y %H:%M:%S %Z") + '\n')
     write('Subject: [PATCH ' + str(num) + '/' + str(total) + '] ' + commit.message.decode('utf-8') + '\n')
@@ -153,12 +153,12 @@ def write_object_diff(f, store, old_tuple, new_tuple):
         if sha is None:
             return "0" * 7
         else:
-            return str(sha)[:7]
+            return sha[:7].decode('ascii')
     def lines(mode, sha):
         if sha is None:
             return []
         elif S_ISGITLINK(mode):
-            return ["Submodule commit " + str(sha) + "\n"]
+            return ["Submodule commit " + sha.decode('ascii') + "\n"]
         else:
             return [l.decode('utf-8') for l in store[sha].data.splitlines(True)]
     if old_path is None:
@@ -211,7 +211,7 @@ def write_blob_diff(f, old_tuple, new_tuple):
         if blob is None:
             return "0" * 7
         else:
-            return str(blob.id)[:7]
+            return blob.id[:7].decode('ascii')
     def lines(blob):
         if blob is not None:
             return [l.decode('utf-8') for l in blob.data.splitlines(True)]
@@ -241,6 +241,7 @@ def write_blob_diff(f, old_tuple, new_tuple):
     new_contents = lines(new_blob)
     for line in unified_diff(old_contents, new_contents, old_path, new_path):
         write(line)
+
 
 def write_tree_diff(f, store, old_tree, new_tree):
     """Write tree diff.

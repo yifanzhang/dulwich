@@ -36,9 +36,6 @@ from dulwich.server import (
     DictBackend,
     DEFAULT_HANDLERS,
     )
-from dulwich.objects import (
-    Sha1Sum
-)
 from wsgiref.simple_server import (
     WSGIRequestHandler,
     make_server,
@@ -128,7 +125,7 @@ def get_text_file(req, backend, mat):
 
 
 def get_loose_object(req, backend, mat):
-    sha = Sha1Sum(mat.group(1) + mat.group(2))
+    sha = (mat.group(1) + mat.group(2)).encode('ascii')
     logger.info('Sending loose object %s', sha)
     object_store = get_repo(backend, mat).object_store
     if not object_store.contains_loose(sha):
@@ -194,10 +191,10 @@ def get_info_refs(req, backend, mat):
             if not o:
                 continue
 
-            yield sha.hex_bytes + b'\t' + name + b'\n'
+            yield sha + b'\t' + name + b'\n'
             peeled_sha = repo.get_peeled(name)
             if peeled_sha != sha:
-                yield peeled_sha.hex_bytes + b'\t' + name + b'^{}\n'
+                yield peeled_sha + b'\t' + name + b'^{}\n'
 
 
 def get_info_packs(req, backend, mat):
@@ -205,9 +202,8 @@ def get_info_packs(req, backend, mat):
     req.respond(HTTP_OK, 'text/plain')
     logger.info('Emulating dumb info/packs')
     for pack in get_repo(backend, mat).object_store.packs:
-        if not isinstance(pack.name(), Sha1Sum):
-            raise TypeError("pack.name() needs to be a Sha1Sum")
-        yield b'P pack-' + pack.name().hex_bytes + b'.pack\n'
+        yield b'P pack-' + pack.name() + b'.pack\n'
+
 
 class _LengthLimitedFile(object):
     """Wrapper class to limit the length of reads from a file-like object.

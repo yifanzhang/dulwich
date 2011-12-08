@@ -40,10 +40,11 @@ from dulwich.objects import (
     ShaFile,
     Tag,
     Tree,
-    Sha1Sum,
     ZERO_SHA,
     S_ISGITLINK,
     object_class,
+    hex_to_sha,
+    sha_to_hex,
     sha_to_filename,
     )
 from dulwich.pack import (
@@ -302,23 +303,33 @@ class PackBasedObjectStore(BaseObjectStore):
         """Check if a particular object is present by SHA1 and is loose."""
         return self._get_loose_object(sha) is not None
 
-    def get_raw(self, sha):
+    def get_raw(self, name):
         """Obtain the raw text for an object.
 
         :param name: sha for the object.
         :return: tuple with numeric type and object contents.
         """
+        if len(name) == 40:
+            sha = hex_to_sha(name)
+            hexsha = name
+        elif len(name) == 20:
+            sha = name
+            hexsha = None
+        else:
+            raise AssertionError("Invalid object name %r" % name)
         for pack in self.packs:
             try:
                 return pack.get_raw(sha)
             except KeyError:
                 pass
-        ret = self._get_loose_object(sha)
+        if hexsha is None:
+            hexsha = sha_to_hex(name)
+        ret = self._get_loose_object(hexsha)
         if ret is not None:
             return ret.type_num, ret.as_raw_string()
         for alternate in self.alternates:
             try:
-                return alternate.get_raw(sha)
+                return alternate.get_raw(hexsha)
             except KeyError:
                 pass
         raise KeyError(sha)
@@ -435,7 +446,7 @@ class DiskObjectStore(PackBasedObjectStore):
             if len(base) != 2:
                 continue
             for rest in os.listdir(os.path.join(self.path, base)):
-                yield Sha1Sum(base + rest)
+                yield (base + rest).encode('ascii')
 
     def _get_loose_object(self, sha):
         path = self._get_shafile_path(sha)
@@ -471,6 +482,7 @@ class DiskObjectStore(PackBasedObjectStore):
 
         # Complete the pack.
         for ext_sha in indexer.ext_refs():
+            assert type(ext_sha) == bytes and len(ext_sha) == 20
             type_num, data = self.get_raw(ext_sha)
             offset = f.tell()
             crc32 = write_pack_object(f, type_num, data, sha=new_sha)
@@ -482,7 +494,7 @@ class DiskObjectStore(PackBasedObjectStore):
         # Move the pack in.
         entries.sort()
         pack_base_name = os.path.join(
-          self.pack_dir, 'pack-' + iter_sha1(e[0].bytes for e in entries).string)
+          self.pack_dir, 'pack-' + iter_sha1(e[0] for e in entries).decode('ascii'))
         os.rename(path, pack_base_name + '.pack')
 
         # Write the index.
@@ -536,7 +548,7 @@ class DiskObjectStore(PackBasedObjectStore):
         with PackData(path) as p:
             entries = p.sorted_entries()
             basename = os.path.join(self.pack_dir,
-                'pack-' + str(iter_sha1(entry[0].bytes for entry in entries)))
+                'pack-' + iter_sha1(entry[0] for entry in entries).decode('ascii'))
             with GitFile(basename+".idx", "wb") as f:
                 write_pack_index_v2(f, entries, p.get_stored_checksum())
         os.rename(path, basename + ".pack")
@@ -567,14 +579,14 @@ class DiskObjectStore(PackBasedObjectStore):
 
         :param obj: Object to add
         """
-        id = obj.id.string[:2]
+        id = obj.id[:2].decode('ascii')
         dir = os.path.join(self.path, id)
         try:
             os.mkdir(dir)
         except OSError as e:
             if e.errno != errno.EEXIST:
                 raise
-        id = obj.id.string[2:]
+        id = obj.id[2:].decode('ascii')
         path = os.path.join(dir, id)
         if os.path.exists(path):
             return # Already there, no need to write again
@@ -601,10 +613,10 @@ class MemoryObjectStore(BaseObjectStore):
         self._data = {}
 
     def _to_hexsha(self, sha):
-        if isinstance(sha, Sha1Sum):
+        if len(sha) == 40:
             return sha
-        elif len(sha) in (20, 40):
-            return Sha1Sum(sha)
+        elif len(sha) == 20:
+            return sha_to_hex(sha)
         else:
             raise ValueError("Invalid sha %r" % sha)
 
@@ -614,6 +626,8 @@ class MemoryObjectStore(BaseObjectStore):
 
     def contains_packed(self, sha):
         """Check if a particular object is present by SHA1 and is packed."""
+        if not len(sha) in (20, 40):
+            raise ValueError("invalid sha %r" % sha)
         return False
 
     def __iter__(self):
@@ -641,14 +655,11 @@ class MemoryObjectStore(BaseObjectStore):
         """Delete an object from this store, for testing only."""
         del self._data[self._to_hexsha(name)]
 
-    def _add_obj(self, name, obj):
-        self._data[name] = obj
-
     def add_object(self, obj):
         """Add a single object to this object store.
 
         """
-        self._add_obj(obj.id, obj)
+        self._data[obj.id] = obj
 
     def add_objects(self, objects):
         """Add a set of objects to this object store.
@@ -656,7 +667,7 @@ class MemoryObjectStore(BaseObjectStore):
         :param objects: Iterable over a list of objects.
         """
         for obj, path in objects:
-            self._add_obj(obj.id, obj)
+            self._data[obj.id] = obj
 
 
 class ObjectImporter(object):

@@ -52,9 +52,7 @@ from dulwich.tests.compat.utils import (
 from dulwich.tests.compat.server_utils import (
     ShutdownServerMixIn,
     )
-from dulwich.objects import (
-    Sha1Sum,
-)
+
 
 class DulwichClientTestBase(object):
     """Tests for client/server compatibility."""
@@ -192,7 +190,7 @@ class DulwichClientTestBase(object):
             dest.refs[b'refs/heads/master'] = dummy_commit
             dest.refs[b'refs/heads/abranch'] = dummy_commit
             sendrefs = dict(dest.refs)
-            sendrefs[b'refs/heads/abranch'] = Sha1Sum("00" * 20)
+            sendrefs[b'refs/heads/abranch'] = b"00" * 20
             del sendrefs[b'HEAD']
             gen_pack = lambda have, want: []
             c = self._client()

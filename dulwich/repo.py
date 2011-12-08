@@ -49,9 +49,10 @@ from dulwich.object_store import (
 from dulwich.objects import (
     Blob,
     Commit,
+    ShaFile,
     Tag,
     Tree,
-    Sha1Sum,
+    hex_to_sha,
     )
 
 OBJECTDIR = 'objects'
@@ -217,10 +218,6 @@ class RefsContainer(object):
         contents = self.read_loose_ref(refname)
         if not contents:
             contents = self.get_packed_refs().get(refname, None)
-            try:
-                contents = Sha1Sum(contents)
-            except (ObjectFormatException, TypeError):
-                pass
         return contents
 
     def read_loose_ref(self, name):
@@ -510,7 +507,7 @@ class DiskRefsContainer(RefsContainer):
                     return header + iter(f).__next__().rstrip(b"\r\n")
                 else:
                     # Read only the first 40 bytes
-                    return Sha1Sum(header + f.read(40-len(SYMREF)))
+                    return header + f.read(40-len(SYMREF))
         except IOError as e:
             if e.errno == errno.ENOENT:
                 return None
@@ -583,7 +580,7 @@ class DiskRefsContainer(RefsContainer):
                     f.abort()
                     raise
             try:
-                f.write(new_ref.hex_bytes + b"\n")
+                f.write(new_ref + b"\n")
             except (OSError, IOError):
                 f.abort()
                 raise
@@ -614,7 +611,7 @@ class DiskRefsContainer(RefsContainer):
                 f.abort()
                 return False
             try:
-                f.write(ref.hex_bytes + b'\n')
+                f.write(ref + b'\n')
             except (OSError, IOError):
                 f.abort()
                 raise
@@ -662,7 +659,7 @@ def _split_ref_line(line):
         raise PackedRefsException("invalid ref line %r" % line)
     sha, name = fields
     try:
-        Sha1Sum(sha)
+        hex_to_sha(sha)
     except (AssertionError, TypeError, ObjectFormatException) as e:
         raise PackedRefsException(e)
     if not check_ref_format(name):
@@ -703,7 +700,7 @@ def read_packed_refs_with_peeled(f):
             if not last:
                 raise PackedRefsException("unexpected peeled ref line")
             try:
-                Sha1Sum(l[1:])
+                hex_to_sha(l[1:])
             except (AssertionError, TypeError, ObjectFormatException) as e:
                 raise PackedRefsException(e)
             sha, name = _split_ref_line(last)
@@ -929,29 +926,34 @@ class BaseRepo(object):
         return Walker(self.object_store, include, *args, **kwargs)
 
     def __getitem__(self, name):
-        if isinstance(name, Sha1Sum):
-            return self.object_store[name]
-        else:
+        if len(name) in (20, 40):
             try:
-                return self.object_store[self.refs[name]]
-            except RefFormatError:
-                raise KeyError(name)
+                return self.object_store[name]
+            except KeyError:
+                pass
+        try:
+            return self.object_store[self.refs[name]]
+        except RefFormatError:
+            raise KeyError(name)
 
     def __iter__(self):
         raise NotImplementedError(self.__iter__)
 
     def __contains__(self, name):
-        if isinstance(name, Sha1Sum):
+        if len(name) in (20, 40):
             return name in self.object_store or name in self.refs
         else:
             return name in self.refs
 
     def __setitem__(self, name, value):
         if name.startswith(b"refs/") or name == b"HEAD":
-            if isinstance(value, Sha1Sum) or isinstance(value, bytes):
+            if isinstance(value, ShaFile):
+                self.refs[name] = value.id
+            elif isinstance(value, bytes):
                 self.refs[name] = value
             else:
                 raise TypeError(value)
+
         else:
             raise ValueError(name)
 

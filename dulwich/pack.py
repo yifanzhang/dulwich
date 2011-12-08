@@ -54,7 +54,6 @@ import struct
 from struct import unpack_from
 from os import SEEK_CUR, SEEK_END
 import sys
-import warnings
 import zlib
 import hashlib
 
@@ -69,8 +68,9 @@ from dulwich.lru_cache import (
 
 from dulwich.objects import (
     ShaFile,
-    Sha1Sum,
     object_header,
+    sha_to_hex,
+    hex_to_sha,
     )
 
 supports_mmap_offset = (sys.version_info[0] >= 3 or
@@ -249,7 +249,7 @@ def iter_sha1(iter):
     sha1 = hashlib.sha1(b'')
     for name in iter:
         sha1.update(name)
-    return Sha1Sum(sha1.digest())
+    return sha1.hexdigest().encode('ascii')
 
 
 def load_pack_index(path):
@@ -352,7 +352,7 @@ class PackIndex(object):
 
     def __iter__(self):
         """Iterate over the SHAs in this pack."""
-        return map(Sha1Sum, self._itersha())
+        return map(sha_to_hex, self._itersha())
 
     def iterentries(self):
         """Iterate over the entries in this pack index.
@@ -376,7 +376,9 @@ class PackIndex(object):
         lives at within the corresponding pack file. If the pack file doesn't
         have the object then None will be returned.
         """
-        return self._object_index(bytes(sha))
+        if len(sha) == 40:
+            sha = hex_to_sha(sha)
+        return self._object_index(sha)
 
     def _object_index(self, sha):
         """See object_index.
@@ -408,7 +410,7 @@ class MemoryPackIndex(PackIndex):
         """
         self._by_sha = {}
         for name, idx, crc32 in entries:
-            self._by_sha[bytes(name)] = idx
+            self._by_sha[name] = idx
         self._entries = entries
         self._pack_checksum = pack_checksum
 
@@ -419,7 +421,7 @@ class MemoryPackIndex(PackIndex):
         return len(self._entries)
 
     def _object_index(self, sha):
-        return self._by_sha[bytes(sha)][0]
+        return self._by_sha[sha][0]
 
     def _itersha(self):
         return iter(self._by_sha)
@@ -645,6 +647,7 @@ def chunks_length(chunks):
     else:
         return len(chunks)
 
+
 def unpack_object(read_all, read_some=None, compute_crc32=False,
                   include_comp=False, zlib_bufsize=_ZLIB_BUFSIZE):
     """Unpack a Git object.
@@ -848,7 +851,7 @@ class PackStreamReader(object):
 
         pack_sha = bytes(self._trailer)
         if pack_sha != self.sha.digest():
-            raise ChecksumMismatch(str(Sha1Sum(pack_sha)), self.sha.hexdigest())
+            raise ChecksumMismatch(sha_to_hex(pack_sha), self.sha.hexdigest())
 
 
 class PackStreamCopier(PackStreamReader):
@@ -901,7 +904,7 @@ def obj_sha(type, chunks):
         if isinstance(chunk, int):
             chunk = bytes((chunk,))
         sha.update(chunk)
-    return Sha1Sum(sha.digest())
+    return sha.digest()
 
 
 def compute_file_sha(f, start_ofs=0, end_ofs=0, buffer_size=1<<16):
@@ -982,7 +985,7 @@ class PackData(object):
 
     @classmethod
     def from_file(cls, file, size):
-        return cls(str(file), file=file, size=size)
+        return cls(file, file=file, size=size)
 
     @classmethod
     def from_path(cls, path):
@@ -1223,8 +1226,7 @@ class DeltaChainIterator(object):
             base_offset = offset - unpacked.delta_base
             self._pending_ofs[base_offset].append(offset)
         elif type_num == REF_DELTA:
-            sha = Sha1Sum(unpacked.delta_base)
-            self._pending_ref[sha].append(offset)
+            self._pending_ref[unpacked.delta_base].append(offset)
         else:
             self._full_ofs.append((offset, type_num))
 
@@ -1241,7 +1243,7 @@ class DeltaChainIterator(object):
 
     def _ensure_no_pending(self):
         if self._pending_ref:
-            raise KeyError([bytes(Sha1Sum(s)) for s in self._pending_ref])
+            raise KeyError([sha_to_hex(s) for s in self._pending_ref])
 
     def _walk_ref_chains(self):
         if not self._resolve_ext_ref:
@@ -1308,6 +1310,8 @@ class PackIndexer(DeltaChainIterator):
     _compute_crc32 = True
 
     def _result(self, unpacked):
+        sha = unpacked.sha()
+        assert len(sha) == 20
         return unpacked.sha(), unpacked.offset, unpacked.crc32
 
 
@@ -1333,7 +1337,7 @@ class SHA1Reader(object):
     def check_sha(self):
         stored = self.f.read(20)
         if stored != self.sha1.digest():
-            raise ChecksumMismatch(self.sha1.hexdigest(), str(Sha1Sum(stored)))
+            raise ChecksumMismatch(self.sha1.hexdigest().encode('ascii'), sha_to_hex(stored))
 
     def __enter__(self):
         return self
@@ -1565,15 +1569,15 @@ def write_pack_index_v1(f, entries, pack_checksum):
     f = SHA1Writer(f)
     fan_out_table = defaultdict(lambda: 0)
     for (name, offset, entry_checksum) in entries:
-        fan_out_table[bytes(name)[0]] += 1
+        fan_out_table[name[0]] += 1
     # Fan-out table
     for i in range(0x100):
         f.write(struct.pack('>L', fan_out_table[i]))
         fan_out_table[i+1] += fan_out_table[i]
     for (name, offset, entry_checksum) in entries:
-        f.write(struct.pack('>L20s', offset, name.bytes))
-    assert len(bytes(pack_checksum)) == 20
-    f.write(bytes(pack_checksum))
+        f.write(struct.pack('>L20s', offset, name))
+    assert len(pack_checksum) == 20
+    f.write(pack_checksum)
     return f.write_sha()
 
 def create_delta(base_buf, target_buf):
@@ -1716,21 +1720,22 @@ def write_pack_index_v2(f, entries, pack_checksum):
     f.write(struct.pack('>L', 2))
     fan_out_table = defaultdict(lambda: 0)
     for (name, offset, entry_checksum) in entries:
-        fan_out_table[bytes(name)[0]] += 1
+        fan_out_table[name[0]] += 1
     # Fan-out table
     for i in range(0x100):
         f.write(struct.pack('>L', fan_out_table[i]))
         fan_out_table[i+1] += fan_out_table[i]
     for (name, offset, entry_checksum) in entries:
-        f.write(bytes(name))
+        assert type(name) == bytes and len(name) == 20
+        f.write(name)
     for (name, offset, entry_checksum) in entries:
         f.write(struct.pack('>L', entry_checksum))
     for (name, offset, entry_checksum) in entries:
         # FIXME: handle if MSBit is set in offset
         f.write(struct.pack('>L', offset))
     # FIXME: handle table for pack files > 8 Gb
-    assert len(bytes(pack_checksum)) == 20
-    f.write(bytes(pack_checksum))
+    assert len(pack_checksum) == 20
+    f.write(pack_checksum)
     return f.write_sha()
 
 
@@ -1820,8 +1825,8 @@ class Pack(object):
         data_stored_checksum = self.data.get_stored_checksum()
 
         if idx_stored_checksum != data_stored_checksum:
-            raise ChecksumMismatch(str(Sha1Sum(idx_stored_checksum)),
-                                   str(Sha1Sum(data_stored_checksum)))
+            raise ChecksumMismatch(sha_to_hex(idx_stored_checksum),
+                                   sha_to_hex(data_stored_checksum))
 
     def check(self):
         """Check the integrity of this pack.

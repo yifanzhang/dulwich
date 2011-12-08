@@ -26,15 +26,12 @@ from dulwich.errors import (
     HangupException,
     GitProtocolError,
     )
-from dulwich.objects import (
-    Sha1Sum
-)
 
 from os import SEEK_END
 
 TCP_GIT_PORT = 9418
 
-ZERO_SHA = Sha1Sum("0" * 40)
+ZERO_SHA = b"0" * 40
 
 SINGLE_ACK = 0
 MULTI_ACK = 1
@@ -66,6 +63,7 @@ def pkt_line(data):
         return b'0000'
 
     return ('%04x' % (len(data) + 4)).encode('ascii') + data
+
 
 
 class Protocol(object):

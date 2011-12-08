@@ -50,16 +50,13 @@ from dulwich.tests import TestCase
 from dulwich.tests.utils import (
     make_commit,
     )
-from dulwich.objects import (
-    Sha1Sum,
-)
 
-ONE = Sha1Sum('1' * 40)
-TWO = Sha1Sum('2' * 40)
-THREE = Sha1Sum('3' * 40)
-FOUR = Sha1Sum('4' * 40)
-FIVE = Sha1Sum('5' * 40)
-SIX = Sha1Sum('6' * 40)
+ONE = b'1' * 40
+TWO = b'2' * 40
+THREE = b'3' * 40
+FOUR = b'4' * 40
+FIVE = b'5' * 40
+SIX = b'6' * 40
 
 
 class TestProto(object):
@@ -181,14 +178,14 @@ class UploadPackHandlerTestCase(TestCase):
         self._repo.object_store.add_object(make_commit(id=FOUR))
         self._repo.refs._update(refs)
         peeled = {
-            b'refs/tags/tag1': Sha1Sum('1234' * 10),
-            b'refs/tags/tag2': Sha1Sum('5678' * 10),
+            b'refs/tags/tag1': b'1234' * 10,
+            b'refs/tags/tag2': b'5678' * 10,
             }
         self._repo.refs._update_peeled(peeled)
 
         caps = list(self._handler.required_capabilities()) + [b'include-tag']
         self._handler.set_client_capabilities(caps)
-        self.assertEqual({Sha1Sum('1234' * 10): ONE, Sha1Sum('5678' * 10): TWO},
+        self.assertEqual({b'1234' * 10: ONE, b'5678' * 10: TWO},
                           self._handler.get_tagged(refs, repo=self._repo))
 
         # non-include-tag case
@@ -252,15 +249,15 @@ class ProtocolGraphWalkerTestCase(TestCase):
     def test_split_proto_line(self):
         allowed = (b'want', b'done', None)
         self.assertEqual((b'want', ONE),
-                          _split_proto_line(b'want ' + ONE.hex_bytes + b'\n', allowed))
+                          _split_proto_line(b'want ' + ONE + b'\n', allowed))
         self.assertEqual((b'want', TWO),
-                          _split_proto_line(b'want ' + TWO.hex_bytes + b'\n', allowed))
+                          _split_proto_line(b'want ' + TWO + b'\n', allowed))
         self.assertRaises(GitProtocolError, _split_proto_line,
                           b'want xxxx\n', allowed)
         self.assertRaises(UnexpectedCommandError, _split_proto_line,
-                          b'have ' + THREE.hex_bytes + b'\n', allowed)
+                          b'have ' + THREE + b'\n', allowed)
         self.assertRaises(GitProtocolError, _split_proto_line,
-                          b'foo ' + FOUR.hex_bytes + b'\n', allowed)
+                          b'foo ' + FOUR + b'\n', allowed)
         self.assertRaises(GitProtocolError, _split_proto_line, b'bar', allowed)
         self.assertEqual((b'done', None), _split_proto_line(b'done\n', allowed))
         self.assertEqual((None, None), _split_proto_line('', allowed))
@@ -270,8 +267,8 @@ class ProtocolGraphWalkerTestCase(TestCase):
         self.assertEqual(None, self._walker.proto.get_received_line())
 
         self._walker.proto.set_output([
-          b'want ' + ONE.hex_bytes + b' multi_ack',
-          b'want ' + TWO.hex_bytes,
+          b'want ' + ONE + b' multi_ack',
+          b'want ' + TWO,
           ])
         heads = {
           b'refs/heads/ref1': ONE,
@@ -281,16 +278,16 @@ class ProtocolGraphWalkerTestCase(TestCase):
         self._repo.refs._update(heads)
         self.assertEqual([ONE, TWO], self._walker.determine_wants(heads))
 
-        self._walker.proto.set_output([b'want ' + FOUR.hex_bytes + b' multi_ack'])
+        self._walker.proto.set_output([b'want ' + FOUR + b' multi_ack'])
         self.assertRaises(GitProtocolError, self._walker.determine_wants, heads)
 
         self._walker.proto.set_output([])
         self.assertEqual([], self._walker.determine_wants(heads))
 
-        self._walker.proto.set_output([b'want ' + ONE.hex_bytes + b' multi_ack', b'foo'])
+        self._walker.proto.set_output([b'want ' + ONE + b' multi_ack', b'foo'])
         self.assertRaises(GitProtocolError, self._walker.determine_wants, heads)
 
-        self._walker.proto.set_output([b'want ' + FOUR.hex_bytes + b' multi_ack'])
+        self._walker.proto.set_output([b'want ' + FOUR + b' multi_ack'])
         self.assertRaises(GitProtocolError, self._walker.determine_wants, heads)
 
     def test_determine_wants_advertisement(self):
@@ -316,16 +313,16 @@ class ProtocolGraphWalkerTestCase(TestCase):
             lines.append(line.rstrip())
 
         self.assertEqual([
-          FOUR.hex_bytes + b' refs/heads/ref4',
-          FIVE.hex_bytes + b' refs/heads/ref5',
-          FIVE.hex_bytes + b' refs/heads/tag6^{}',
-          SIX.hex_bytes + b' refs/heads/tag6',
+          FOUR + b' refs/heads/ref4',
+          FIVE + b' refs/heads/ref5',
+          FIVE + b' refs/heads/tag6^{}',
+          SIX + b' refs/heads/tag6',
           ], sorted(lines))
 
         # ensure peeled tag was advertised immediately following tag
         for i, line in enumerate(lines):
             if line.endswith(b' refs/heads/tag6'):
-                self.assertEqual(FIVE.hex_bytes + b' refs/heads/tag6^{}', lines[i+1])
+                self.assertEqual(FIVE + b' refs/heads/tag6^{}', lines[i+1])
 
     # TODO: test commit time cutoff
 

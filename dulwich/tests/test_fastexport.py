@@ -26,7 +26,6 @@ from dulwich.object_store import (
 from dulwich.objects import (
     Blob,
     Commit,
-    Sha1Sum,
     Tree,
     )
 from dulwich.repo import (
@@ -144,7 +143,7 @@ M 100644 :1 a
         self.processor.commit_handler(cmd)
         commit = self.repo[self.processor.last_commit]
         self.assertEqual([
-            (b'path', 0o100644, Sha1Sum('6320cd248dd8aeaab759d5871f8781b5c0505172'))],
+            (b'path', 0o100644, b'6320cd248dd8aeaab759d5871f8781b5c0505172')],
             list(self.repo[commit.tree].items()))
 
     def simple_commit(self):
@@ -178,8 +177,8 @@ M 100644 :1 a
         self.simple_commit()
         commit = self.make_file_commit([commands.FileCopyCommand(b"path", b"new_path")])
         self.assertEqual([
-            (b'new_path', 0o100644, Sha1Sum('6320cd248dd8aeaab759d5871f8781b5c0505172')),
-            (b'path', 0o100644, Sha1Sum('6320cd248dd8aeaab759d5871f8781b5c0505172')),
+            (b'new_path', 0o100644, b'6320cd248dd8aeaab759d5871f8781b5c0505172'),
+            (b'path', 0o100644, b'6320cd248dd8aeaab759d5871f8781b5c0505172'),
             ], list(self.repo[commit.tree].items()))
 
     def test_file_move(self):
@@ -187,7 +186,7 @@ M 100644 :1 a
         self.simple_commit()
         commit = self.make_file_commit([commands.FileRenameCommand(b"path", b"new_path")])
         self.assertEqual([
-            (b'new_path', 0o100644, Sha1Sum('6320cd248dd8aeaab759d5871f8781b5c0505172')),
+            (b'new_path', 0o100644, b'6320cd248dd8aeaab759d5871f8781b5c0505172'),
             ], list(self.repo[commit.tree].items()))
 
     def test_file_delete(self):

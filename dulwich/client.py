@@ -45,9 +45,6 @@ from dulwich.protocol import (
 from dulwich.pack import (
     write_pack_objects,
     )
-from dulwich.objects import (
-    Sha1Sum
-)
 
 # Python 2.6.6 included these in urlparse.uses_netloc upstream. Do
 # monkeypatching to enable similar behaviour in earlier Pythons:
@@ -153,7 +150,7 @@ class GitClient(object):
                 raise GitProtocolError(ref)
             if server_capabilities is None:
                 (ref, server_capabilities) = extract_capabilities(ref)
-            refs[ref] = Sha1Sum(sha)
+            refs[ref] = sha
         return refs, server_capabilities
 
     def send_pack(self, path, determine_wants, generate_pack_contents,
@@ -279,10 +276,10 @@ class GitClient(object):
             if old_sha1 != new_sha1:
                 if sent_capabilities:
                     proto.write_pkt_line(
-                      old_sha1.hex_bytes + b' ' + new_sha1.hex_bytes + b' ' + refname)
+                      old_sha1 + b' ' + new_sha1 + b' ' + refname)
                 else:
                     proto.write_pkt_line(
-                      old_sha1.hex_bytes + b' ' + new_sha1.hex_bytes + b' ' + refname + \
+                      old_sha1 + b' ' + new_sha1 + b' ' + refname + \
                       b'\0' + b' '.join(capabilities))
 
                     sent_capabilities = True
@@ -331,14 +328,14 @@ class GitClient(object):
             whether there is extra graph data to read on proto
         """
 
-        proto.write_pkt_line(b'want ' + wants[0].hex_bytes + b' ' +
+        proto.write_pkt_line(b'want ' + wants[0] + b' ' +
                              b' '.join(capabilities) + b'\n')
         for want in wants[1:]:
-            proto.write_pkt_line(b'want ' + want.hex_bytes + b'\n')
+            proto.write_pkt_line(b'want ' + want + b'\n')
         proto.write_pkt_line(None)
         have = next(graph_walker)
         while have:
-            proto.write_pkt_line(b'have ' + have.hex_bytes + b'\n')
+            proto.write_pkt_line(b'have ' + have + b'\n')
             if can_read():
                 pkt = proto.read_pkt_line()
                 parts = pkt.rstrip(b'\n').split(b' ')

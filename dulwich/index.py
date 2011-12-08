@@ -27,7 +27,8 @@ from dulwich.objects import (
     S_IFGITLINK,
     S_ISGITLINK,
     Tree,
-    Sha1Sum,
+    sha_to_hex,
+    hex_to_sha,
     )
 from dulwich.pack import (
     SHA1Reader,
@@ -99,7 +100,7 @@ def read_cache_entry(f):
     real_size = ((f.tell() - beginoffset + 8) & ~7)
     data = f.read((beginoffset + real_size) - f.tell())
     return (name, ctime, mtime, dev, ino, mode, uid, gid, size, 
-            Sha1Sum(sha), flags & ~0x0fff)
+            sha_to_hex(sha), flags & ~0x0fff)
 
 
 def write_cache_entry(f, entry):
@@ -114,7 +115,7 @@ def write_cache_entry(f, entry):
     write_cache_time(f, ctime)
     write_cache_time(f, mtime)
     flags = len(name) | (flags &~ 0x0fff)
-    f.write(struct.pack(">LLLLLL20sH", dev, ino, mode, uid, gid, size, bytes(sha), flags))
+    f.write(struct.pack(">LLLLLL20sH", dev, ino, mode, uid, gid, size, hex_to_sha(sha), flags))
     f.write(name)
     real_size = ((f.tell() - beginoffset + 8) & ~7)
     f.write(b"\0" * ((beginoffset + real_size) - f.tell()))
@@ -133,7 +134,7 @@ def read_index(f):
 
 def read_index_dict(f):
     """Read an index file and return it as a dictionary.
-    
+
     :param f: File object to read from
     """
     ret = {}
@@ -227,7 +228,7 @@ class Index(object):
         return iter(self._byname)
 
     def get_sha1(self, path):
-        """Return the (Sha1Sum object) SHA1 for the object at a path."""
+        """Return the SHA1 for the object at a path."""
         return self[path][-2]
 
     def get_mode(self, path):

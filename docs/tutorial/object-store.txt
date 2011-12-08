@@ -17,7 +17,7 @@ empty for now, we'll start by adding a new file::
   >>> from dulwich.objects import Blob
   >>> blob = Blob.from_string(b"My file content\n")
   >>> blob.id
-  Sha1Sum('c55063a4d5d37aa1af2b2dad3a70aa34dae54dc6')
+  b'c55063a4d5d37aa1af2b2dad3a70aa34dae54dc6'
 
 Of course you could create a blob from an existing file using ``from_file``
 instead.
@@ -124,13 +124,13 @@ Let's first build the blob::
   >>> from dulwich.objects import Blob
   >>> spam = Blob.from_string(b"My new file content\n")
   >>> spam.id
-  Sha1Sum('16ee2682887a962f854ebd25a61db16ef4efe49f')
+  b'16ee2682887a962f854ebd25a61db16ef4efe49f'
 
 An alternative is to alter the previously constructed blob object::
 
   >>> blob.data = b"My new file content\n"
   >>> blob.id
-  Sha1Sum('16ee2682887a962f854ebd25a61db16ef4efe49f')
+  b'16ee2682887a962f854ebd25a61db16ef4efe49f'
 
 In any case, update the blob id known as "spam". You also have the
 opportunity of changing its mode::

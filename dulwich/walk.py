@@ -34,9 +34,6 @@ from dulwich.diff_tree import (
 from dulwich.errors import (
     MissingCommitError,
     )
-from dulwich.objects import (
-    Sha1Sum
-)
 
 ORDER_DATE = 'date'
 ORDER_TOPO = 'topo'

@@ -36,7 +36,7 @@ from dulwich.objects import (
     Tag,
     Tree,
     TreeEntry,
-    Sha1Sum,
+    sha_to_hex,
     )
 from dulwich.object_store import (
     DiskObjectStore,
@@ -63,20 +63,20 @@ class ObjectStoreTests(object):
 
     def test_determine_wants_all(self):
         self.assertEqual([b"1" * 40],
-            self.store.determine_wants_all({b"refs/heads/foo": Sha1Sum("1" * 40)}))
+            self.store.determine_wants_all({b"refs/heads/foo": b"1" * 40}))
 
     def test_determine_wants_all_zero(self):
         self.assertEqual([],
-            self.store.determine_wants_all({b"refs/heads/foo": Sha1Sum("0" * 40)}))
+            self.store.determine_wants_all({b"refs/heads/foo": b"0" * 40}))
 
     def test_iter(self):
         self.assertEqual([], list(self.store))
 
     def test_get_nonexistant(self):
-        self.assertRaises(KeyError, lambda: self.store[Sha1Sum("a" * 40)])
+        self.assertRaises(KeyError, lambda: self.store[b"a" * 40])
 
     def test_contains_nonexistant(self):
-        self.assertFalse(Sha1Sum("a" * 40) in self.store)
+        self.assertFalse(b"a" * 40 in self.store)
 
     def test_add_objects_empty(self):
         self.store.add_objects([])
@@ -272,7 +272,7 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
                   ], store=o)
 
                 with o.add_thin_pack(f.read, None) as pack:
-                    packed_blob_sha = entries[0][3]
+                    packed_blob_sha = sha_to_hex(entries[0][3])
                     pack.check_length_and_checksum()
                     self.assertEqual(sorted([blob.id, packed_blob_sha]), list(pack))
                     self.assertTrue(o.contains_packed(packed_blob_sha))

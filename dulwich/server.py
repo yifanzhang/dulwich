@@ -41,6 +41,7 @@ from dulwich.errors import (
     ObjectFormatException,
     )
 from dulwich import log_utils
+from dulwich.objects import hex_to_sha
 from dulwich.pack import (
     write_pack_objects,
     )
@@ -61,23 +62,8 @@ from dulwich.protocol import (
 from dulwich.repo import (
     Repo,
     )
-from dulwich.objects import (
-    Sha1Sum
-    )
-
 
 logger = log_utils.getLogger(__name__)
-
-
-def _force_bytes(text):
-    if isinstance(text, Sha1Sum):
-        return text.hex_bytes
-    elif isinstance(text, str):
-        return text.encode('utf-8')
-    elif isinstance(text, bytes):
-        return text
-    else:
-        raise TypeError(text)
 
 
 class Backend(object):
@@ -350,7 +336,7 @@ def _split_proto_line(line, allowed):
         if len(fields) == 1 and command in (b'done', None):
             return (command, None)
         elif len(fields) == 2 and command in (b'want', b'have'):
-            fields[1] = Sha1Sum(fields[1])
+            hex_to_sha(fields[1])
             return tuple(fields)
     except (TypeError, AssertionError, ObjectFormatException) as e:
         raise GitProtocolError(e)
@@ -401,13 +387,13 @@ class ProtocolGraphWalker(object):
         values = set(heads.values())
         if self.advertise_refs or not self.http_req:
             for i, (ref, sha) in enumerate(sorted(heads.items())):
-                line = sha.hex_bytes + b' ' + ref
+                line = sha + b' ' + ref
                 if not i:
                     line = line + b'\x00' + self.handler.capability_line()
                 self.proto.write_pkt_line(line + b'\n')
                 peeled_sha = self.get_peeled(ref)
                 if peeled_sha != sha:
-                    self.proto.write_pkt_line(peeled_sha.hex_bytes + b' ' +
+                    self.proto.write_pkt_line(peeled_sha + b' ' +
                                               ref + b'^{}\n')
 
             # i'm done..
@@ -475,7 +461,7 @@ class ProtocolGraphWalker(object):
     def send_ack(self, sha, ack_type=b''):
         if ack_type:
             ack_type = b' ' + ack_type
-        self.proto.write_pkt_line(b'ACK ' + sha.hex_bytes + ack_type + b'\n')
+        self.proto.write_pkt_line(b'ACK ' + sha + ack_type + b'\n')
 
     def send_nak(self):
         self.proto.write_pkt_line(b'NAK\n')
@@ -725,15 +711,15 @@ class ReceivePackHandler(Handler):
 
         if self.advertise_refs or not self.http_req:
             if refs:
-                refs[0] = [refs[0][0], _force_bytes(refs[0][1])]
+                refs[0] = [refs[0][0], refs[0][1]]
                 self.proto.write_pkt_line(
                   refs[0][1] + b' ' + refs[0][0] + b'\x00' +
                   self.capability_line() + b'\n')
                 for i in range(1, len(refs)):
-                    ref = [refs[i][0], _force_bytes(refs[i][1])]
+                    ref = [refs[i][0], refs[i][1]]
                     self.proto.write_pkt_line(ref[1] + b' ' + ref[0] + b'\n')
             else:
-                self.proto.write_pkt_line(ZERO_SHA.hex_bytes + b' capabilities^{}\0' +
+                self.proto.write_pkt_line(ZERO_SHA + b' capabilities^{}\0' +
                   self.capability_line())
 
             self.proto.write(b"0000")
@@ -752,10 +738,7 @@ class ReceivePackHandler(Handler):
 
         # client will now send us a list of (oldsha, newsha, ref)
         while ref:
-            tmp = ref.split()
-            tmp[0] = Sha1Sum(tmp[0])
-            tmp[1] = Sha1Sum(tmp[1])
-            client_refs.append(tmp)
+            client_refs.append(ref.split())
             ref = self.proto.read_pkt_line()
 
         # backend can now deal with this refs and read a pack using self.read
@@ -859,6 +842,11 @@ def serve_command(handler_cls, argv=sys.argv, backend=None, inf=sys.stdin.buffer
     def send_fn(data):
         outf.write(data)
         outf.flush()
+
+    if hasattr(inf, 'buffer'):
+        recv_fn = inf.buffer.read
+    else:
+        recv_fn = inf.read
 
     with Protocol(inf.read, send_fn, None) as proto:
         with handler_cls(backend, [arg.encode(sys.getfilesystemencoding()) for arg in argv[1:]], proto) as handler:

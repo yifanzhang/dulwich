@@ -48,7 +48,6 @@ from dulwich.objects import (
     Blob,
     TreeEntry,
     Tree,
-    Sha1Sum,
     )
 from dulwich.tests import (
     TestCase,
@@ -136,9 +135,9 @@ class TreeChangesTest(DiffTestCase):
           ((b'c', 0o100755, blob_c2.id), (None, None, None)),
           ], merge_entries(b'', tree2, tree1))
 
-        #self.assertMergeFails(merge_entries, 0xdeadbeef, 0o100644, '1' * 40)
-        self.assertMergeFails(merge_entries, b'a', 'deadbeef', Sha1Sum('1' * 40))
-        #self.assertMergeFails(merge_entries, 'a', 0o100644, Sha1Sum(0xdeadbeef))
+        self.assertMergeFails(merge_entries, 0xdeadbeef, 0o100644, '1' * 40)
+        self.assertMergeFails(merge_entries, b'a', 'deadbeef', '1' * 40)
+        self.assertMergeFails(merge_entries, 'a', 0o100644, 0xdeadbeef)
 
     test_merge_entries = functest_builder(_do_test_merge_entries,
                                           _merge_entries_py)
@@ -147,11 +146,11 @@ class TreeChangesTest(DiffTestCase):
 
     def _do_test_is_tree(self, is_tree):
         self.assertFalse(is_tree(TreeEntry(None, None, None)))
-        self.assertFalse(is_tree(TreeEntry(b'a', 0o100644, Sha1Sum('a' * 40))))
-        self.assertFalse(is_tree(TreeEntry(b'a', 0o100755, Sha1Sum('a' * 40))))
-        self.assertFalse(is_tree(TreeEntry(b'a', 0o120000, Sha1Sum('a' * 40))))
-        self.assertTrue(is_tree(TreeEntry(b'a', 0o40000, Sha1Sum('a' * 40))))
-        self.assertRaises(TypeError, is_tree, TreeEntry(b'a', 'x', Sha1Sum('a' * 40)))
+        self.assertFalse(is_tree(TreeEntry(b'a', 0o100644, b'a' * 40)))
+        self.assertFalse(is_tree(TreeEntry(b'a', 0o100755, b'a' * 40)))
+        self.assertFalse(is_tree(TreeEntry(b'a', 0o120000, b'a' * 40)))
+        self.assertTrue(is_tree(TreeEntry(b'a', 0o40000, b'a' * 40)))
+        self.assertRaises(TypeError, is_tree, TreeEntry(b'a', 'x', b'a' * 40))
         self.assertRaises(AttributeError, is_tree, 1234)
 
     test_is_tree = functest_builder(_do_test_is_tree, _is_tree_py)
@@ -548,13 +547,13 @@ class RenameDetectionTest(DiffTestCase):
           50, _similarity_score(blob1, blob2, block_cache=block_cache))
 
     def test_tree_entry_sort(self):
-        sha = Sha1Sum('abcd' * 10)
+        sha = b'abcd' * 10
         expected_entries = [
           TreeChange.add(TreeEntry(b'aaa', F, sha)),
           TreeChange(CHANGE_COPY, TreeEntry(b'bbb', F, sha),
                      TreeEntry(b'aab', F, sha)),
           TreeChange(CHANGE_MODIFY, TreeEntry(b'bbb', F, sha),
-                     TreeEntry(b'bbb', F, Sha1Sum('dabc' * 10))),
+                     TreeEntry(b'bbb', F, b'dabc' * 10)),
           TreeChange(CHANGE_RENAME, TreeEntry(b'bbc', F, sha),
                      TreeEntry(b'ddd', F, sha)),
           TreeChange.delete(TreeEntry(b'ccc', F, sha)),
@@ -758,8 +757,8 @@ class RenameDetectionTest(DiffTestCase):
     def test_content_rename_gitlink(self):
         blob1 = make_object(Blob, data=b'blob1')
         blob2 = make_object(Blob, data=b'blob2')
-        link1 = Sha1Sum('1' * 40)
-        link2 = Sha1Sum('2' * 40)
+        link1 = b'1' * 40
+        link2 = b'2' * 40
         tree1 = self.commit_tree([(b'a', blob1), (b'b', link1, 0o160000)])
         tree2 = self.commit_tree([(b'c', blob2), (b'd', link2, 0o160000)])
         self.assertEqual(

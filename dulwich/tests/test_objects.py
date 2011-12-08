@@ -27,7 +27,6 @@ import datetime
 import os
 import stat
 import binascii
-import hashlib
 
 from dulwich.errors import (
     ObjectFormatException,
@@ -39,12 +38,13 @@ from dulwich.objects import (
     Commit,
     ShaFile,
     Tag,
-    Sha1Sum,
     format_timezone,
     check_hexsha,
     check_identity,
     parse_timezone,
     TreeEntry,
+    hex_to_sha,
+    sha_to_hex,
     parse_tree,
     _parse_tree_py,
     sorted_tree_items,
@@ -54,27 +54,27 @@ from dulwich.objects import (
 from dulwich.tests import (
     TestCase,
     )
-from .utils import (
+from dulwich.tests.utils import (
     make_commit,
     make_object,
     functest_builder,
     ext_functest_builder,
     )
 
-a_sha = Sha1Sum('6f670c0fb53f9463760b7295fbb814e965fb20c8')
-b_sha = Sha1Sum('2969be3e8ee1c0222396a5611407e4769f14e54b')
-c_sha = Sha1Sum('954a536f7819d40e6f637f849ee187dd10066349')
-tree_sha = Sha1Sum('70c190eb48fa8bbb50ddc692a17b44cb781af7f6')
-tag_sha = Sha1Sum('71033db03a03c6a36721efcf1968dd8f8e0cf023')
+a_sha = b'6f670c0fb53f9463760b7295fbb814e965fb20c8'
+b_sha = b'2969be3e8ee1c0222396a5611407e4769f14e54b'
+c_sha = b'954a536f7819d40e6f637f849ee187dd10066349'
+tree_sha = b'70c190eb48fa8bbb50ddc692a17b44cb781af7f6'
+tag_sha = b'71033db03a03c6a36721efcf1968dd8f8e0cf023'
 
 
 class TestHexToSha(TestCase):
 
     def test_simple(self):
-        self.assertEqual(b"\xab\xcd" * 10, Sha1Sum("abcd" * 10).bytes)
+        self.assertEqual(b"\xab\xcd" * 10, hex_to_sha(b"abcd" * 10))
 
     def test_reverse(self):
-        self.assertEqual("abcd" * 10, Sha1Sum(b"\xab\xcd" * 10).string)
+        self.assertEqual(b"abcd" * 10, sha_to_hex(b"\xab\xcd" * 10))
 
 
 class BlobReadTests(TestCase):
@@ -100,24 +100,23 @@ class BlobReadTests(TestCase):
     def test_decompress_simple_blob(self):
         b = self.get_blob(a_sha)
         self.assertEqual(b.data, b'test 1\n')
-        self.assertEqual(Sha1Sum(b.sha()), a_sha)
+        self.assertEqual(b.id, a_sha)
 
     def test_hash(self):
         b = self.get_blob(a_sha)
         self.assertEqual(hash(b.id), hash(b))
 
     def test_parse_empty_blob_object(self):
-        sha = Sha1Sum('e69de29bb2d1d6434b8b29ae775ad8c2e48c5391')
+        sha = b'e69de29bb2d1d6434b8b29ae775ad8c2e48c5391'
         b = self.get_blob(sha)
         self.assertEqual(b.data, b'')
         self.assertEqual(b.id, sha)
-        self.assertEqual(Sha1Sum(b.sha()), sha)
 
     def test_create_blob_from_string(self):
         string = b'test 2\n'
         b = Blob.from_string(string)
         self.assertEqual(b.data, string)
-        self.assertEqual(Sha1Sum(b.sha()), b_sha)
+        self.assertEqual(b.id, b_sha)
 
     def test_legacy_from_file(self):
         b1 = Blob.from_string(b'foo')
@@ -141,7 +140,7 @@ class BlobReadTests(TestCase):
         string = b'test 3\n'
         b = self.get_blob(c_sha)
         self.assertEqual(b.data, string)
-        self.assertEqual(Sha1Sum(b.sha()), c_sha)
+        self.assertEqual(b.id, c_sha)
 
     def test_eq(self):
         blob1 = self.get_blob(a_sha)
@@ -155,18 +154,18 @@ class BlobReadTests(TestCase):
 
     def test_read_tag_from_file(self):
         t = self.get_tag(tag_sha)
-        self.assertEqual(t.object, (Commit, Sha1Sum('51b668fd5bf7061b7d6fa525f88803e6cfadaa51')))
+        self.assertEqual(t.object, (Commit, b'51b668fd5bf7061b7d6fa525f88803e6cfadaa51'))
         self.assertEqual(t.name, b'signed')
         self.assertEqual(t.tagger, b'Ali Sabil <ali.sabil@gmail.com>')
         self.assertEqual(t.tag_time, 1231203091)
         self.assertEqual(t.message, b'This is a signed tag\n-----BEGIN PGP SIGNATURE-----\nVersion: GnuPG v1.4.9 (GNU/Linux)\n\niEYEABECAAYFAkliqx8ACgkQqSMmLy9u/kcx5ACfakZ9NnPl02tOyYP6pkBoEkU1\n5EcAn0UFgokaSvS371Ym/4W9iJj6vh3h\n=ql7y\n-----END PGP SIGNATURE-----\n')
 
     def test_read_commit_from_file(self):
-        sha = Sha1Sum('60dacdc733de308bb77bb76ce0fb0f9b44c9769e')
+        sha = b'60dacdc733de308bb77bb76ce0fb0f9b44c9769e'
         c = self.commit(sha)
         self.assertEqual(c.tree, tree_sha)
         self.assertEqual(c.parents,
-            [Sha1Sum('0d89f20333fbb1d2f3a94da77f4981373d8f4310')])
+            [b'0d89f20333fbb1d2f3a94da77f4981373d8f4310'])
         self.assertEqual(c.author,
             b'James Westby <jw+debian@jameswestby.net>')
         self.assertEqual(c.committer,
@@ -177,9 +176,9 @@ class BlobReadTests(TestCase):
         self.assertEqual(c.message, b'Test commit\n')
 
     def test_read_commit_no_parents(self):
-        sha = Sha1Sum('0d89f20333fbb1d2f3a94da77f4981373d8f4310')
+        sha = b'0d89f20333fbb1d2f3a94da77f4981373d8f4310'
         c = self.commit(sha)
-        self.assertEqual(c.tree, Sha1Sum('90182552c4a85a45ec2a835cadc3451bebdfe870'))
+        self.assertEqual(c.tree, b'90182552c4a85a45ec2a835cadc3451bebdfe870')
         self.assertEqual(c.parents, [])
         self.assertEqual(c.author,
             b'James Westby <jw+debian@jameswestby.net>')
@@ -191,11 +190,11 @@ class BlobReadTests(TestCase):
         self.assertEqual(c.message, b'Test commit\n')
 
     def test_read_commit_two_parents(self):
-        sha = Sha1Sum('5dac377bdded4c9aeb8dff595f0faeebcc8498cc')
+        sha = b'5dac377bdded4c9aeb8dff595f0faeebcc8498cc'
         c = self.commit(sha)
-        self.assertEqual(c.tree, Sha1Sum('d80c186a03f423a81b39df39dc87fd269736ca86'))
-        self.assertEqual(c.parents, [Sha1Sum('ab64bbdcc51b170d21588e5c5d391ee5c0c96dfd'),
-                                     Sha1Sum('4cffe90e0a41ad3f5190079d7c8f036bde29cbe6')])
+        self.assertEqual(c.tree, b'd80c186a03f423a81b39df39dc87fd269736ca86')
+        self.assertEqual(c.parents, [b'ab64bbdcc51b170d21588e5c5d391ee5c0c96dfd',
+                                     b'4cffe90e0a41ad3f5190079d7c8f036bde29cbe6'])
         self.assertEqual(c.author,
             b'James Westby <jw+debian@jameswestby.net>')
         self.assertEqual(c.committer,
@@ -206,7 +205,7 @@ class BlobReadTests(TestCase):
         self.assertEqual(c.message, b'Merge ../b\n')
 
     def test_stub_sha(self):
-        sha = Sha1Sum('5' * 40)
+        sha = b'5' * 40
         c = make_commit(id=sha, message=b'foo')
         self.assertTrue(isinstance(c, Commit))
         self.assertEqual(sha, c.id)
@@ -256,9 +255,9 @@ class ShaFileTests(TestCase):
 class CommitSerializationTests(TestCase):
 
     def make_commit(self, **kwargs):
-        attrs = {'tree': Sha1Sum('d80c186a03f423a81b39df39dc87fd269736ca86'),
-                 'parents': [Sha1Sum('ab64bbdcc51b170d21588e5c5d391ee5c0c96dfd'),
-                             Sha1Sum('4cffe90e0a41ad3f5190079d7c8f036bde29cbe6')],
+        attrs = {'tree': b'd80c186a03f423a81b39df39dc87fd269736ca86',
+                 'parents': [b'ab64bbdcc51b170d21588e5c5d391ee5c0c96dfd',
+                             b'4cffe90e0a41ad3f5190079d7c8f036bde29cbe6'],
                  'author': b'James Westby <jw+debian@jameswestby.net>',
                  'committer': b'James Westby <jw+debian@jameswestby.net>',
                  'commit_time': 1174773719,
@@ -311,9 +310,9 @@ default_committer = b'James Westby <jw+debian@jameswestby.net> 1174773719 +0000'
 class CommitParseTests(ShaFileCheckTests):
 
     def make_commit_lines(self,
-                          tree=Sha1Sum('d80c186a03f423a81b39df39dc87fd269736ca86'),
-                          parents=[Sha1Sum('ab64bbdcc51b170d21588e5c5d391ee5c0c96dfd'),
-                                   Sha1Sum('4cffe90e0a41ad3f5190079d7c8f036bde29cbe6')],
+                          tree=b'd80c186a03f423a81b39df39dc87fd269736ca86',
+                          parents=[b'ab64bbdcc51b170d21588e5c5d391ee5c0c96dfd',
+                                   b'4cffe90e0a41ad3f5190079d7c8f036bde29cbe6'],
                           author=default_committer,
                           committer=default_committer,
                           encoding=None,
@@ -322,12 +321,9 @@ class CommitParseTests(ShaFileCheckTests):
 
         lines = []
         if tree is not None:
-            self.assertTrue(isinstance(tree, Sha1Sum))
-            lines.append(b'tree ' + tree.hex_bytes)
+            lines.append(b'tree ' + tree)
         if parents is not None:
-            for p in parents:
-                self.assertTrue(isinstance(p, Sha1Sum))
-            lines.extend(b'parent ' + p.hex_bytes for p in parents)
+            lines.extend(b'parent ' + p for p in parents)
         if author is not None:
             lines.append(b'author ' + author)
         if committer is not None:
@@ -420,39 +416,39 @@ class CommitParseTests(ShaFileCheckTests):
 
 
 _TREE_ITEMS = {
-  b'a.c': (0o100755, Sha1Sum('d80c186a03f423a81b39df39dc87fd269736ca86')),
-  b'a': (stat.S_IFDIR, Sha1Sum('d80c186a03f423a81b39df39dc87fd269736ca86')),
-  b'a/c': (stat.S_IFDIR, Sha1Sum('d80c186a03f423a81b39df39dc87fd269736ca86')),
+  b'a.c': (0o100755, b'd80c186a03f423a81b39df39dc87fd269736ca86'),
+  b'a': (stat.S_IFDIR, b'd80c186a03f423a81b39df39dc87fd269736ca86'),
+  b'a/c': (stat.S_IFDIR, b'd80c186a03f423a81b39df39dc87fd269736ca86'),
   }
 
 _SORTED_TREE_ITEMS = [
-  TreeEntry(b'a.c', 0o100755, Sha1Sum('d80c186a03f423a81b39df39dc87fd269736ca86')),
-  TreeEntry(b'a', stat.S_IFDIR, Sha1Sum('d80c186a03f423a81b39df39dc87fd269736ca86')),
-  TreeEntry(b'a/c', stat.S_IFDIR, Sha1Sum('d80c186a03f423a81b39df39dc87fd269736ca86')),
+  TreeEntry(b'a.c', 0o100755, b'd80c186a03f423a81b39df39dc87fd269736ca86'),
+  TreeEntry(b'a', stat.S_IFDIR, b'd80c186a03f423a81b39df39dc87fd269736ca86'),
+  TreeEntry(b'a/c', stat.S_IFDIR, b'd80c186a03f423a81b39df39dc87fd269736ca86'),
   ]
 
 
 class TreeTests(ShaFileCheckTests):
 
     def test_add(self):
-        sha = Sha1Sum("d80c186a03f423a81b39df39dc87fd269736ca86")
+        sha = b"d80c186a03f423a81b39df39dc87fd269736ca86"
         x = Tree()
         x.add(b"myname", 0o100755, sha)
         self.assertEqual(x[b"myname"], (0o100755, sha))
-        self.assertEqual(b'100755 myname\0' + bytes(sha), x.as_raw_string())
+        self.assertEqual(b'100755 myname\0' + hex_to_sha(sha), x.as_raw_string())
 
     def test_simple(self):
-        sha = Sha1Sum("d80c186a03f423a81b39df39dc87fd269736ca86")
+        sha = b"d80c186a03f423a81b39df39dc87fd269736ca86"
         x = Tree()
         x[b"myname"] = (0o100755, sha)
-        self.assertEqual(b'100755 myname\0' + bytes(sha), x.as_raw_string())
+        self.assertEqual(b'100755 myname\0' + hex_to_sha(sha), x.as_raw_string())
 
     def test_tree_update_id(self):
         x = Tree()
-        x[b"a.c"] = (0o100755, Sha1Sum("d80c186a03f423a81b39df39dc87fd269736ca86"))
-        self.assertEqual(Sha1Sum("0c5c6bc2c081accfbc250331b19e43b904ab9cdd"), x.id)
-        x[b"a.b"] = (stat.S_IFDIR, Sha1Sum("d80c186a03f423a81b39df39dc87fd269736ca86"))
-        self.assertEqual(Sha1Sum("07bfcb5f3ada15bbebdfa3bbb8fd858a363925c8"), x.id)
+        x[b"a.c"] = (0o100755, b"d80c186a03f423a81b39df39dc87fd269736ca86")
+        self.assertEqual(b"0c5c6bc2c081accfbc250331b19e43b904ab9cdd", x.id)
+        x[b"a.b"] = (stat.S_IFDIR, b"d80c186a03f423a81b39df39dc87fd269736ca86")
+        self.assertEqual(b"07bfcb5f3ada15bbebdfa3bbb8fd858a363925c8", x.id)
 
     def test_tree_iteritems_dir_sort(self):
         x = Tree()
@@ -472,7 +468,7 @@ class TreeTests(ShaFileCheckTests):
         self.assertEqual([(b'a', 0o100644, a_sha), (b'b', 0o100644, b_sha)],
                           list(parse_tree(o.as_raw_string())))
         # test a broken tree that has a leading 0 on the file mode
-        broken_tree = b'0100644 foo\0' + bytes(a_sha)
+        broken_tree = b'0100644 foo\0' + hex_to_sha(a_sha)
 
         def eval_parse_tree(*args, **kwargs):
             return list(parse_tree(*args, **kwargs))
@@ -499,12 +495,12 @@ class TreeTests(ShaFileCheckTests):
         # For example, the C implementation has stricter type checks, so may
         # raise TypeError where the Python implementation raises AttributeError.
         errors = (TypeError, ValueError, AttributeError)
-        self.assertRaises(errors, do_sort, 'foo')
-        self.assertRaises(errors, do_sort, {'foo': (1, 2, 3)})
+        self.assertRaises(errors, do_sort, b'foo')
+        self.assertRaises(errors, do_sort, {b'foo': (1, 2, 3)})
 
-        myhexsha = Sha1Sum('d80c186a03f423a81b39df39dc87fd269736ca86')
-        self.assertRaises(errors, do_sort, {'foo': ('xxx', myhexsha)})
-        self.assertRaises(errors, do_sort, {'foo': (0o100755, 12345)})
+        myhexsha = b'd80c186a03f423a81b39df39dc87fd269736ca86'
+        self.assertRaises(errors, do_sort, {b'foo': ('xxx', myhexsha)})
+        self.assertRaises(errors, do_sort, {b'foo': (0o100755, 12345)})
 
     test_sorted_tree_items = functest_builder(_do_test_sorted_tree_items,
                                               _sorted_tree_items_py)
@@ -514,10 +510,10 @@ class TreeTests(ShaFileCheckTests):
     def _do_test_sorted_tree_items_name_order(self, sorted_tree_items):
         self.assertEqual([
           TreeEntry(b'a', stat.S_IFDIR,
-                    Sha1Sum('d80c186a03f423a81b39df39dc87fd269736ca86')),
-          TreeEntry(b'a.c', 0o100755, Sha1Sum('d80c186a03f423a81b39df39dc87fd269736ca86')),
+                    b'd80c186a03f423a81b39df39dc87fd269736ca86'),
+          TreeEntry(b'a.c', 0o100755, b'd80c186a03f423a81b39df39dc87fd269736ca86'),
           TreeEntry(b'a/c', stat.S_IFDIR,
-                    Sha1Sum('d80c186a03f423a81b39df39dc87fd269736ca86')),
+                    b'd80c186a03f423a81b39df39dc87fd269736ca86'),
           ], list(sorted_tree_items(_TREE_ITEMS, True)))
 
     test_sorted_tree_items_name_order = functest_builder(
@@ -527,7 +523,7 @@ class TreeTests(ShaFileCheckTests):
 
     def test_check(self):
         t = Tree
-        sha = bytes(a_sha)
+        sha = hex_to_sha(a_sha)
 
         # filenames
         self.assertCheckSucceeds(t, b'100644 .a\0' + sha)
@@ -552,7 +548,7 @@ class TreeTests(ShaFileCheckTests):
         self.assertCheckFails(t, b'100644 a\0' + b'x' * 21 + b'\n100644 b\0' + sha)
 
         # ordering
-        sha2 = bytes(b_sha)
+        sha2 = hex_to_sha(b_sha)
         self.assertCheckSucceeds(t, b'100644 a\0' + sha + b'\n100644 b\0' + sha)
         self.assertCheckSucceeds(t, b'100644 a\0' + sha + b'\n100644 b\0' + sha2)
         self.assertCheckFails(t, b'100644 a\0' + sha + b'\n100755 a\0' + sha2)
@@ -571,7 +567,7 @@ class TagSerializeTests(TestCase):
                         tagger=b'Jelmer Vernooij <jelmer@samba.org>',
                         name=b'0.1',
                         message=b'Tag 0.1',
-                        object=(Blob, Sha1Sum('d80c186a03f423a81b39df39dc87fd269736ca86')),
+                        object=(Blob, b'd80c186a03f423a81b39df39dc87fd269736ca86'),
                         tag_time=423423423,
                         tag_timezone=0)
         self.assertEqual((b'object d80c186a03f423a81b39df39dc87fd269736ca86\n'
@@ -599,14 +595,14 @@ OK2XeQOiEeXtT76rV4t2WR4=
 class TagParseTests(ShaFileCheckTests):
 
     def make_tag_lines(self,
-                       object_sha=Sha1Sum("a38d6181ff27824c79fc7df825164a212eff6a3f"),
+                       object_sha=b"a38d6181ff27824c79fc7df825164a212eff6a3f",
                        object_type_name=b"commit",
                        name=b"v2.6.22-rc7",
                        tagger=default_tagger,
                        message=default_message):
         lines = []
         if object_sha is not None:
-            lines.append(b'object ' + bytes(object_sha))
+            lines.append(b'object ' + object_sha)
         if object_type_name is not None:
             lines.append(b'type ' + object_type_name)
         if name is not None:
@@ -628,7 +624,7 @@ class TagParseTests(ShaFileCheckTests):
             b"Linus Torvalds <torvalds@woody.linux-foundation.org>", x.tagger)
         self.assertEqual(b'v2.6.22-rc7', x.name)
         object_type, object_sha = x.object
-        self.assertEqual(Sha1Sum("a38d6181ff27824c79fc7df825164a212eff6a3f"),
+        self.assertEqual(b"a38d6181ff27824c79fc7df825164a212eff6a3f",
                          object_sha)
         self.assertEqual(Commit, object_type)
         self.assertEqual(datetime.datetime.utcfromtimestamp(x.tag_time),
@@ -681,11 +677,11 @@ class CheckTests(TestCase):
 
     def test_check_hexsha(self):
         check_hexsha(a_sha, "failed to check good sha")
-        self.assertRaises(ObjectFormatException, check_hexsha, '1' * 39,
+        self.assertRaises(ObjectFormatException, check_hexsha, b'1' * 39,
                           'sha too short')
-        self.assertRaises(ObjectFormatException, check_hexsha, '1' * 41,
+        self.assertRaises(ObjectFormatException, check_hexsha, b'1' * 41,
                           'sha too long')
-        self.assertRaises((ObjectFormatException, binascii.Error), check_hexsha, 'x' * 40,
+        self.assertRaises((ObjectFormatException, binascii.Error), check_hexsha, b'x' * 40,
                           'invalid characters')
 
     def test_check_identity(self):
@@ -741,199 +737,3 @@ class TimezoneTests(TestCase):
     def test_parse_timezone_pdt_half(self):
         self.assertEqual((((-4 * 60) - 40) * 60, False),
             parse_timezone(b'-0440'))
-
-class Sha1SumTests(TestCase):
-
-    def test_from_string(self):
-        s = Sha1Sum('1' * 40)
-        self.assertEqual(s.bytes, b'\x11' * 20)
-        self.assertEqual(s.string, '1' * 40)
-        self.assertEqual(s.hex_bytes, b'1' * 40)
-        self.assertEqual(s.short_string, '1' * 7)
-        self.assertEqual(s.short_hex_bytes, b'1' * 7)
-
-    def test_from_hexbytes(self):
-        s = Sha1Sum(b'1' * 40)
-        self.assertEqual(s.bytes, b'\x11' * 20)
-        self.assertEqual(s.string, '1' * 40)
-        self.assertEqual(s.hex_bytes, b'1' * 40)
-        self.assertEqual(s.short_string, '1' * 7)
-        self.assertEqual(s.short_hex_bytes, b'1' * 7)
-
-    def test_from_bytes(self):
-        s = Sha1Sum(b'\x11' * 20)
-        self.assertEqual(s.bytes, b'\x11' * 20)
-        self.assertEqual(s.string, '1' * 40)
-        self.assertEqual(s.hex_bytes, b'1' * 40)
-        self.assertEqual(s.short_string, '1' * 7)
-        self.assertEqual(s.short_hex_bytes, b'1' * 7)
-
-    def test_from_sha(self):
-        expected = Sha1Sum('ff8e8b6ff073aaff7c02c0e973597e9da63c1225')
-        actual = Sha1Sum(hashlib.sha1(b"I'm a lumberjack"))
-        self.assertEqual(actual, expected)
-
-    def test_resolve(self):
-        s = Sha1Sum('1' * 40, resolve=True)
-        self.assertEqual(s._bytes, b'\x11' * 20)
-        self.assertEqual(s._string, '1' * 40)
-        self.assertEqual(s._hex_bytes, b'1' * 40)
-
-        s = Sha1Sum('2' * 40, resolve=True)
-        self.assertEqual(s.bytes, b'\x22' * 20)
-        self.assertEqual(s.string, '2' * 40)
-        self.assertEqual(s.hex_bytes, b'2' * 40)
-
-    def _make_invalid_shas(self):
-        class WrongShaA(object):
-            def digest(self):
-                return 'not a bytes object'
-
-        class WrongShaB(object):
-            def digest(self):
-                return b'\xde\xad\xbe\xef'
-
-        class WrongShaC(object):
-            pass
-
-        return (WrongShaA(), WrongShaB(), WrongShaC())
-
-    def test_invalid(self):
-        wrong_a, wrong_b, wrong_c = self._make_invalid_shas()
-        self.assertRaises(ObjectFormatException, Sha1Sum, 'Derp')
-        self.assertRaises(ObjectFormatException, Sha1Sum, '1' * 39)
-        self.assertRaises(ObjectFormatException, Sha1Sum, '2' * 41)
-        self.assertRaises(ObjectFormatException, Sha1Sum, 'X' * 40)
-        self.assertRaises(ObjectFormatException, Sha1Sum, b'Derp')
-        self.assertRaises(ObjectFormatException, Sha1Sum, wrong_a)
-        self.assertRaises(ObjectFormatException, Sha1Sum, wrong_b)
-        self.assertRaises(TypeError, Sha1Sum, wrong_c)
-
-    def test_invalid_lazy(self):
-        wrong_a, wrong_b, wrong_c = self._make_invalid_shas()
-        invalid = [
-          Sha1Sum('Derp', lazy_errors=True),
-          Sha1Sum(b'Derp', lazy_errors=True),
-          Sha1Sum('1' * 39, lazy_errors=True),
-          Sha1Sum('2' * 41, lazy_errors=True),
-          Sha1Sum('X' * 40, lazy_errors=True),
-          Sha1Sum(wrong_a, lazy_errors=True),
-          Sha1Sum(wrong_b, lazy_errors=True),
-          Sha1Sum(wrong_c, lazy_errors=True)]
-        errors = (ObjectFormatException, TypeError)
-        for sha in invalid:
-            self.assertRaises(errors, lambda: sha.string)
-            self.assertRaises(errors, lambda: sha.bytes)
-            self.assertRaises(errors, lambda: sha.hex_bytes)
-
-    def test_equal(self):
-        a = Sha1Sum('1a2b3c4d' * 5)
-        b = Sha1Sum(b'\x1a\x2b\x3c\x4d' * 5)
-        self.assertEqual(a, b)
-        self.assertEqual(a.hex_bytes, b.hex_bytes)
-        self.assertEqual(a.string, b.string)
-        self.assertEqual(a.bytes, b.bytes)
-        self.assertEqual(hash(a), hash(b))
-        self.assertEqual(a, '1a2b3c4d' * 5)
-
-    def test_not_equal(self):
-        a = Sha1Sum('1a2b3c4d' * 5)
-        b = Sha1Sum(b'\x4d\x3c\x2b\x1a' * 5)
-        self.assertNotEqual(a, b)
-        self.assertNotEqual(a, 42)
-        self.assertNotEqual(a, None)
-        self.assertNotEqual(a.hex_bytes, b.hex_bytes)
-        self.assertNotEqual(a.string, b.string)
-        self.assertNotEqual(a.bytes, b.bytes)
-        self.assertNotEqual(hash(a), hash(b))
-        self.assertNotEqual(a, b'\x4d\x3c\x2b\x1a' * 5)
-
-    def _make_inequality(self):
-        return (
-          Sha1Sum('1' * 40),
-          Sha1Sum('2' * 40),
-          Sha1Sum('3' * 40),
-        )
-
-    def test_less_than(self):
-        a, b, c = self._make_inequality()
-        self.assertTrue(a < b)
-        self.assertTrue(b < c)
-        self.assertTrue(a < c)
-        self.assertTrue(not (a < a))
-        self.assertTrue(not (b < a))
-        self.assertTrue(not (b < b))
-        self.assertTrue(not (c < a))
-        self.assertTrue(not (c < b))
-        self.assertTrue(not (c < c))
-
-    def test_less_than_or_equal(self):
-        a, b, c = self._make_inequality()
-        self.assertTrue(a <= a)
-        self.assertTrue(a <= b)
-        self.assertTrue(a <= c)
-        self.assertTrue(b <= b)
-        self.assertTrue(b <= c)
-        self.assertTrue(c <= c)
-        self.assertTrue(not (b <= a))
-        self.assertTrue(not (c <= a))
-        self.assertTrue(not (c <= b))
-
-    def test_greater_than(self):
-        a, b, c = self._make_inequality()
-        self.assertTrue(b > a)
-        self.assertTrue(c > b)
-        self.assertTrue(c > a)
-        self.assertTrue(not (a > a))
-        self.assertTrue(not (a > b))
-        self.assertTrue(not (b > b))
-        self.assertTrue(not (a > c))
-        self.assertTrue(not (b > c))
-        self.assertTrue(not (c > c))
-
-    def test_greater_than_or_equal(self):
-        a, b, c = self._make_inequality()
-        self.assertTrue(a >= a)
-        self.assertTrue(b >= a)
-        self.assertTrue(c >= a)
-        self.assertTrue(b >= b)
-        self.assertTrue(c >= b)
-        self.assertTrue(c >= c)
-        self.assertTrue(not (a >= b))
-        self.assertTrue(not (a >= c))
-        self.assertTrue(not (b >= c))
-
-    def test_hash(self):
-        a = Sha1Sum('a' * 40)
-        b = Sha1Sum('b' * 40)
-        d = {a: 'A', b: 'B'}
-        self.assertTrue(b'\xaa' * 20 in d)
-        self.assertTrue(b'\xbb' * 20 in d)
-
-    def test_stringlike(self):
-        base = '90abcdef'
-        s = Sha1Sum(base * 5)
-        self.assertTrue(s == base * 5)
-        self.assertTrue(base * 5 == str(s))
-        self.assertTrue(s.startswith(base))
-        self.assertTrue(s.endswith(base))
-        self.assertTrue(base in s)
-
-    def test_byteslike(self):
-        base1 = b'90abcdef'
-        s1 = Sha1Sum(base1 * 5)
-        base2 = b'\x90\xab\xcd\xed'
-        s2 = Sha1Sum(base2 * 5)
-        self.assertTrue(s1 == base1 * 5)
-        self.assertTrue(base2 * 5 == bytes(s2))
-        self.assertTrue(s1.startswith(base1))
-        self.assertTrue(s1.endswith(base1))
-        self.assertTrue(base1 in s1)
-
-    def test_hashliblike(self):
-        h = hashlib.sha1(b"Don't forget to bring a towel")
-        s = Sha1Sum(h)
-        self.assertEqual(h.digest(), s.digest())
-        self.assertEqual(h.hexdigest(), s.hexdigest())
-        self.assertEqual(h.digest_size, s.digest_size)
-        self.assertEqual(h.name, s.name)

@@ -27,7 +27,6 @@ from dulwich.object_store import (
 from dulwich.objects import (
     Blob,
     Tag,
-    Sha1Sum,
     )
 from dulwich.repo import (
     BaseRepo,
@@ -173,7 +172,7 @@ class DumbHandlersTestCase(WebTestCase):
     def test_get_loose_object(self):
         blob = make_object(Blob, data=b'foo')
         backend = _test_backend([blob])
-        mat = re.search('^(..)(.{38})$', str(blob.id))
+        mat = re.search('^(..)(.{38})$', blob.id.decode('ascii'))
         output = b''.join(get_loose_object(self._req, backend, mat))
         self.assertEqual(blob.as_legacy_object(), output)
         self.assertEqual(HTTP_OK, self._status)
@@ -188,7 +187,7 @@ class DumbHandlersTestCase(WebTestCase):
     def test_get_loose_object_error(self):
         blob = make_object(Blob, data=b'foo')
         backend = _test_backend([blob])
-        mat = re.search('^(..)(.{38})$', str(blob.id))
+        mat = re.search('^(..)(.{38})$', blob.id.decode('ascii'))
 
         def as_legacy_object_error():
             raise IOError
@@ -233,7 +232,7 @@ class DumbHandlersTestCase(WebTestCase):
 
         objects = [blob1, blob2, blob3, tag1]
         refs = {
-          b'HEAD': Sha1Sum('0' * 40),
+          b'HEAD': b'0' * 40,
           b'refs/heads/master': blob1.id,
           b'refs/tags/tag-tag': tag1.id,
           b'refs/tags/blob-tag': blob3.id,
@@ -241,10 +240,10 @@ class DumbHandlersTestCase(WebTestCase):
         backend = _test_backend(objects, refs=refs)
 
         mat = re.search('.*', '//info/refs')
-        self.assertEqual([blob1.id.hex_bytes + b'\trefs/heads/master\n',
-                          blob3.id.hex_bytes + b'\trefs/tags/blob-tag\n',
-                          tag1.id.hex_bytes + b'\trefs/tags/tag-tag\n',
-                          blob2.id.hex_bytes + b'\trefs/tags/tag-tag^{}\n'],
+        self.assertEqual([blob1.id + b'\trefs/heads/master\n',
+                          blob3.id + b'\trefs/tags/blob-tag\n',
+                          tag1.id + b'\trefs/tags/tag-tag\n',
+                          blob2.id + b'\trefs/tags/tag-tag^{}\n'],
                           list(get_info_refs(self._req, backend, mat)))
         self.assertEqual(HTTP_OK, self._status)
         self.assertContentTypeEquals('text/plain')
@@ -252,13 +251,16 @@ class DumbHandlersTestCase(WebTestCase):
 
     def test_get_info_packs(self):
         class TestPack(object):
+
             def __init__(self, sha):
                 self._sha = sha
 
             def name(self):
                 return self._sha
 
-        packs = [TestPack(Sha1Sum(str(i) * 40)) for i in range(1, 4)]
+        packs = [TestPack(str(i).encode('ascii') * 40) for i in range(1, 4)]
+
+        self.assertEqual(b'1' * 40, packs[0].name())
 
         class TestObjectStore(MemoryObjectStore):
             # property must be overridden, can't be assigned
@@ -273,7 +275,7 @@ class DumbHandlersTestCase(WebTestCase):
                 output = b''.join(get_info_packs(self._req, backend, mat))
                 expected = 'P pack-%s.pack\n' * 3
                 expected %= ('1' * 40, '2' * 40, '3' * 40)
-                self.assertEqual(expected.encode('utf-8'), output)
+                self.assertEqual(expected.encode('ascii'), output)
                 self.assertEqual(HTTP_OK, self._status)
                 self.assertContentTypeEquals('text/plain')
                 self.assertFalse(self._req.cached)

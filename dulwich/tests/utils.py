@@ -32,7 +32,7 @@ from dulwich.index import (
     )
 from dulwich.objects import (
     Commit,
-    Sha1Sum,
+    FixedSha,
     )
 from dulwich.pack import (
     OFS_DELTA,
@@ -101,7 +101,7 @@ def make_object(cls, **attrs):
     for name, value in attrs.items():
         if name == 'id':
             # id property is read-only, so we overwrite sha instead.
-            sha = Sha1Sum(value)
+            sha = FixedSha(value)
             obj.sha = lambda: sha
         else:
             setattr(obj, name, value)
@@ -123,7 +123,7 @@ def make_commit(**attrs):
                  'commit_timezone': 0,
                  'message': b'Test message.',
                  'parents': [],
-                 'tree': Sha1Sum('0' * 40)}
+                 'tree': b'0' * 40}
     all_attrs.update(attrs)
     return make_object(Commit, **all_attrs)
 
@@ -231,6 +231,7 @@ def build_pack(f, objects_spec, store=None):
     expected = []
     for i in range(num_objects):
         type_num, data, sha = full_objects[i]
+        assert len(sha) == 20
         expected.append((offsets[i], type_num, data, sha, crc32s[i]))
 
     sf.write_sha()

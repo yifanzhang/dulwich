@@ -33,7 +33,7 @@ from dulwich.errors import ApplyDeltaError
 from dulwich.index import Index
 from dulwich.pack import Pack
 from dulwich.repo import Repo
-from dulwich.objects import Sha1Sum
+from dulwich.objects import sha_to_hex
 
 def cmd_fetch_pack(args):
     opts, args = getopt(args, "", ["all"])
@@ -85,7 +85,7 @@ def cmd_dump_pack(args):
     basename, _ = os.path.splitext(args[0])
     x = Pack(basename)
     print("Object names checksum: %s" % x.name())
-    print("Checksum: %s" % Sha1Sum(x.get_stored_checksum()))
+    print("Checksum: %s" % sha_to_hex(x.get_stored_checksum()))
     if not x.check():
         print("CHECKSUM DOES NOT MATCH")
     print("Length: %d" % len(x))
@@ -129,9 +129,6 @@ def cmd_init(args):
     else:
         Repo.init(path)
 
-def bytes_to_stdout(dat):
-    sys.stdout.write(dat.decode('utf-8'))
-
 def cmd_clone(args):
     opts, args = getopt(args, "", [])
     opts = dict(opts)
@@ -151,7 +148,7 @@ def cmd_clone(args):
     r = Repo.init(path)
     remote_refs = client.fetch(host_path, r,
         determine_wants=r.object_store.determine_wants_all,
-        progress=bytes_to_stdout)
+        progress=sys.stdout.buffer.write)
     r[b"HEAD"] = remote_refs[b"HEAD"]
 
 
