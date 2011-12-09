@@ -431,7 +431,11 @@ class TraditionalGitClient(GitClient):
             negotiated_capabilities = list(self._send_capabilities)
             if b'report-status' not in server_capabilities:
                 negotiated_capabilities.remove(b'report-status')
-            new_refs = determine_wants(old_refs)
+            try:
+                new_refs = determine_wants(old_refs)
+            except:
+                proto.write_pkt_line(None)
+                raise
             if new_refs is None:
                 proto.write_pkt_line(None)
                 return old_refs
@@ -459,7 +463,11 @@ class TraditionalGitClient(GitClient):
         with proto:
             (refs, server_capabilities) = self._read_refs(proto)
             negotiated_capabilities = list(self._fetch_capabilities)
-            wants = determine_wants(refs)
+            try:
+                wants = determine_wants(refs)
+            except:
+                proto.write_pkt_line(None)
+                raise
             if not wants:
                 proto.write_pkt_line(None)
                 return refs
@@ -468,6 +476,24 @@ class TraditionalGitClient(GitClient):
             self._handle_upload_pack_tail(proto, negotiated_capabilities,
                 graph_walker, pack_data, progress)
         return refs
+
+    def archive(self, path, committish, write_data, progress=None):
+        proto, can_read = self._connect('upload-archive', path)
+        proto.write_pkt_line("argument %s" % committish)
+        proto.write_pkt_line(None)
+        pkt = proto.read_pkt_line()
+        if pkt == "NACK\n":
+            return
+        elif pkt == "ACK\n":
+            pass
+        elif pkt.startswith("ERR "):
+            raise GitProtocolError(pkt[4:].rstrip("\n"))
+        else:
+            raise AssertionError("invalid response %r" % pkt)
+        ret = proto.read_pkt_line()
+        if ret is not None:
+            raise AssertionError("expected pkt tail")
+        self._read_side_band64k_data(proto, {1: write_data, 2: progress})
 
 
 class TCPGitClient(TraditionalGitClient):

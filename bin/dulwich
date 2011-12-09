@@ -1,6 +1,8 @@
 #!/usr/bin/python3 -u
+#
 # dulwich - Simple command-line interface to Dulwich
-# Copyright (C) 2008 Jelmer Vernooij <jelmer@samba.org>
+# Copyright (C) 2008-2011 Jelmer Vernooij <jelmer@samba.org>
+# vim: expandtab
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -34,6 +36,15 @@ from dulwich.index import Index
 from dulwich.pack import Pack
 from dulwich.repo import Repo
 from dulwich.objects import sha_to_hex
+from dulwich.server import update_server_info
+
+
+def cmd_archive(args):
+    opts, args = getopt(args, "", [])
+    client, path = get_transport_and_path(args.pop(0))
+    committish = args.pop(0)
+    client.archive(path, committish, sys.stdout.write, sys.stderr.write)
+
 
 def cmd_fetch_pack(args):
     opts, args = getopt(args, "", ["all"])
@@ -163,6 +174,11 @@ def cmd_commit(args):
     r.do_commit(committer=committer, author=author, message=opts["--message"])
 
 
+def cmd_update_server_info(args):
+    r = Repo(".")
+    update_server_info(r)
+
+
 commands = {
     "commit": cmd_commit,
     "fetch-pack": cmd_fetch_pack,
@@ -171,6 +187,8 @@ commands = {
     "init": cmd_init,
     "log": cmd_log,
     "clone": cmd_clone,
+    "archive": cmd_archive,
+    "update-server-info": cmd_update_server_info,
     }
 
 if len(sys.argv) < 2:

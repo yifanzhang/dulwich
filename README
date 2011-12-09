@@ -12,10 +12,19 @@ Please file bugs in the Dulwich project on Launchpad:
 
 https://bugs.launchpad.net/dulwich/+filebug
 
-Basic documentation and tutorials can be found on Github:
+The dulwich documentation can be found in doc/ and on the web:
+
+http://www.samba.org/~jelmer/dulwich/docs/
+
+The API reference can be generated using pydoctor, by running "make pydoctor", or on the web:
+
+http://www.samba.org/~jelmer/dulwich/apidocs
+
+Basic documentation and tutorials generated for Python3 can be found on Github:
 
 http://eberle1080.github.com/dulwich-py3k/docs/index.html
 
 Full API documentation can be found on Github:
 
 http://eberle1080.github.com/dulwich-py3k/apidocs/index.html
+
