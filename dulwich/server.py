@@ -860,25 +860,25 @@ def serve_command(handler_cls, argv=sys.argv, backend=None, inf=sys.stdin.buffer
 def generate_info_refs(repo):
     """Generate an info refs file."""
     refs = repo.get_refs()
-    for name in sorted(refs.iterkeys()):
+    for name in sorted(iter(refs)):
         # get_refs() includes HEAD as a special case, but we don't want to
         # advertise it
-        if name == 'HEAD':
+        if name == b'HEAD':
             continue
         sha = refs[name]
-        o = repo[sha]
+        o = repo.object_store[sha]
         if not o:
             continue
-        yield '%s\t%s\n' % (sha, name)
+        yield sha + b'\t' + name + b'\n'
         peeled_sha = repo.get_peeled(name)
         if peeled_sha != sha:
-            yield '%s\t%s^{}\n' % (peeled_sha, name)
+            yield peeled_sha + b'\t' + name + b'^{}\n'
 
 
 def generate_objects_info_packs(repo):
     """Generate an index for for packs."""
     for pack in repo.object_store.packs:
-        yield 'P pack-%s.pack\n' % pack.name()
+        yield b'P pack-' + pack.name() + b'.pack\n'
 
 
 def update_server_info(repo):
@@ -888,7 +888,7 @@ def update_server_info(repo):
     similar to "git update-server-info".
     """
     repo._put_named_file(os.path.join('info', 'refs'),
-        "".join(generate_info_refs(repo)))
+        b"".join(generate_info_refs(repo)))
 
     repo._put_named_file(os.path.join('objects', 'info', 'packs'),
-        "".join(generate_objects_info_packs(repo)))
+        b"".join(generate_objects_info_packs(repo)))

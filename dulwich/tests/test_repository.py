@@ -35,6 +35,7 @@ from dulwich import objects
 from dulwich.repo import (
     check_ref_format,
     DictRefsContainer,
+    InfoRefsContainer,
     Repo,
     MemoryRepo,
     read_packed_refs,
@@ -811,3 +812,56 @@ class DiskRefsContainerTests(RefsContainerTests, TestCase):
             self._refs.read_ref(b"refs/heads/packed"))
         self.assertEqual(None,
             self._refs.read_ref(b"nonexistant"))
+
+
+_TEST_REFS_SERIALIZED = (
+b'42d06bd4b77fed026b154d16493e5deab78f02ec\trefs/heads/master\n'
+b'42d06bd4b77fed026b154d16493e5deab78f02ec\trefs/heads/packed\n'
+b'df6800012397fb85c56e7418dd4eb9405dee075c\trefs/tags/refs-0.1\n'
+b'3ec9c43c84ff242e3ef4a9fc5bc111fd780a76a8\trefs/tags/refs-0.2\n')
+
+
+class InfoRefsContainerTests(TestCase):
+
+    def test_invalid_refname(self):
+        text = _TEST_REFS_SERIALIZED + b'00' * 20 + b'\trefs/stash\n'
+        refs = InfoRefsContainer(BytesIO(text))
+        expected_refs = dict(_TEST_REFS)
+        del expected_refs[b'HEAD']
+        expected_refs[b"refs/stash"] = b"00" * 20
+        self.assertEqual(expected_refs, refs.as_dict())
+
+    def test_keys(self):
+        refs = InfoRefsContainer(BytesIO(_TEST_REFS_SERIALIZED))
+        actual_keys = set(refs.keys())
+        self.assertEqual(set(refs.allkeys()), actual_keys)
+        # ignore the symref loop if it exists
+        actual_keys.discard(b'refs/heads/loop')
+        expected_refs = dict(_TEST_REFS)
+        del expected_refs[b'HEAD']
+        self.assertEqual(set(expected_refs), actual_keys)
+
+        actual_keys = refs.keys(b'refs/heads')
+        actual_keys.discard(b'loop')
+        self.assertEqual([b'master', b'packed'], sorted(actual_keys))
+        self.assertEqual([b'refs-0.1', b'refs-0.2'],
+                         sorted(refs.keys(b'refs/tags')))
+
+    def test_as_dict(self):
+        refs = InfoRefsContainer(BytesIO(_TEST_REFS_SERIALIZED))
+        # refs/heads/loop does not show up even if it exists
+        expected_refs = dict(_TEST_REFS)
+        del expected_refs[b'HEAD']
+        self.assertEqual(expected_refs, refs.as_dict())
+
+    def test_contains(self):
+        refs = InfoRefsContainer(BytesIO(_TEST_REFS_SERIALIZED))
+        self.assertTrue(b'refs/heads/master' in refs)
+        self.assertFalse(b'refs/heads/bar' in refs)
+
+    def test_get_peeled(self):
+        refs = InfoRefsContainer(BytesIO(_TEST_REFS_SERIALIZED))
+        # refs/heads/loop does not show up even if it exists
+        self.assertEqual(
+            _TEST_REFS[b'refs/heads/master'],
+            refs.get_peeled(b'refs/heads/master'))

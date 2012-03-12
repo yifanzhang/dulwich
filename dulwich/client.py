@@ -479,14 +479,14 @@ class TraditionalGitClient(GitClient):
 
     def archive(self, path, committish, write_data, progress=None):
         proto, can_read = self._connect('upload-archive', path)
-        proto.write_pkt_line("argument %s" % committish)
+        proto.write_pkt_line(b"argument " + committish)
         proto.write_pkt_line(None)
         pkt = proto.read_pkt_line()
-        if pkt == "NACK\n":
+        if pkt == b"NACK\n":
             return
-        elif pkt == "ACK\n":
+        elif pkt == b"ACK\n":
             pass
-        elif pkt.startswith("ERR "):
+        elif pkt.startswith(b"ERR "):
             raise GitProtocolError(pkt[4:].rstrip("\n"))
         else:
             raise AssertionError("invalid response %r" % pkt)

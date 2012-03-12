@@ -26,7 +26,6 @@ import time
 
 from urllib.parse import parse_qs
 from dulwich import log_utils
-from dulwich.gzip import GzipConsumer
 from dulwich.protocol import (
     ReceivableProtocol,
     )

@@ -23,6 +23,7 @@ from io import (
     BytesIO,
     )
 import os
+import posix
 import shutil
 import stat
 import struct
@@ -32,6 +33,7 @@ from dulwich.index import (
     Index,
     cleanup_mode,
     commit_tree,
+    index_entry_from_stat,
     read_index,
     write_cache_time,
     write_index,
@@ -163,3 +165,23 @@ class WriteCacheTimeTests(TestCase):
         f = BytesIO()
         write_cache_time(f, 434343.000000021)
         self.assertEqual(struct.pack(">LL", 434343, 21), f.getvalue())
+
+
+class IndexEntryFromStatTests(TestCase):
+
+    def test_simple(self):
+        st = posix.stat_result((16877, 131078, 64769,
+                154, 1000, 1000, 12288,
+                1323629595, 1324180496, 1324180496))
+        entry = index_entry_from_stat(st, "22" * 20, 0)
+        self.assertEqual(entry, (
+            1324180496,
+            1324180496,
+            64769,
+            131078,
+            16877,
+            1000,
+            1000,
+            12288,
+            '2222222222222222222222222222222222222222',
+            0))

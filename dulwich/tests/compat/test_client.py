@@ -172,10 +172,10 @@ class DulwichClientTestBase(object):
     def test_archive(self):
         c = self._client()
         f = BytesIO()
-        c.archive(self._build_path('/server_new.export'), 'HEAD', f.write)
+        c.archive(self._build_path('/server_new.export'), b'HEAD', f.write)
         f.seek(0)
-        tf = tarfile.open(fileobj=f)
-        self.assertEquals(['baz', 'foo'], tf.getnames())
+        with tarfile.open(fileobj=f) as tf:
+            self.assertEqual(['baz', 'foo'], tf.getnames())
 
     def test_fetch_pack(self):
         c = self._client()

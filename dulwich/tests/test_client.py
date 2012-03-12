@@ -75,11 +75,11 @@ class GitClientTests(TestCase):
 
     def test_archive_ack(self):
         self.rin.write(
-            '0009NACK\n'
-            '0000')
+            b'0009NACK\n'
+            b'0000')
         self.rin.seek(0)
-        self.client.archive('bla', 'HEAD', None, None)
-        self.assertEquals(self.rout.getvalue(), '0011argument HEAD0000')
+        self.client.archive(b'bla', b'HEAD', None, None)
+        self.assertEqual(self.rout.getvalue(), b'0011argument HEAD0000')
 
     def test_fetch_pack_none(self):
         self.rin.write(
