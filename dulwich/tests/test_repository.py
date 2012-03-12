@@ -32,6 +32,7 @@ from dulwich.object_store import (
     tree_lookup_path,
     )
 from dulwich import objects
+from dulwich.config import Config
 from dulwich.repo import (
     check_ref_format,
     DictRefsContainer,
@@ -71,7 +72,7 @@ class CreateRepositoryTests(TestCase):
         self.assertFileContentsEqual(b'Unnamed repository', repo, 'description')
         self.assertFileContentsEqual(b'', repo, os.path.join('info', 'exclude'))
         self.assertFileContentsEqual(None, repo, 'nonexistent file')
-        barestr = ('bare = %s' % str(expect_bare).lower()).encode('utf-8')
+        barestr = ('bare = %s' % str(expect_bare).lower()).encode('ascii')
         with repo.get_named_file('config') as config:
             self.assertTrue(barestr in config.read())
 
@@ -113,10 +114,6 @@ class RepositoryTests(TestCase):
         r = self._repo = open_repo('a.git')
         self.assertEqual(r.ref(b'refs/heads/master'),
                          b'a90fa2d900a17e99b433217e988c4eb4a2e9a097')
-
-    def test_iter(self):
-        r = self._repo = open_repo('a.git')
-        self.assertRaises(NotImplementedError, r.__iter__)
 
     def test_setitem(self):
         r = self._repo = open_repo('a.git')
@@ -239,7 +236,11 @@ class RepositoryTests(TestCase):
 
     def test_get_config(self):
         r = self._repo = open_repo('ooo_merge.git')
-        self.assertEqual({}, r.get_config())
+        self.assertIsInstance(r.get_config(), Config)
+
+    def test_get_config_stack(self):
+        r = self._repo = open_repo('ooo_merge.git')
+        self.assertIsInstance(r.get_config_stack(), Config)
 
     def test_common_revisions(self):
         """
@@ -368,6 +369,21 @@ class BuildRepoTests(TestCase):
              author_timestamp=12395, author_timezone=0,
              encoding=b"iso8859-1")
         self.assertEqual(b"iso8859-1", r[commit_sha].encoding)
+
+    def test_commit_config_identity(self):
+        # commit falls back to the users' identity if it wasn't specified
+        r = self._repo
+        c = r.get_config()
+        c.set((b"user", ), b"name", b"Jelmer")
+        c.set((b"user", ), b"email", b"jelmer@apache.org")
+        c.write_to_path()
+        commit_sha = r.do_commit(b'message')
+        self.assertEqual(
+            b"Jelmer <jelmer@apache.org>",
+            r[commit_sha].author)
+        self.assertEqual(
+            b"Jelmer <jelmer@apache.org>",
+            r[commit_sha].committer)
 
     def test_commit_fail_ref(self):
         r = self._repo

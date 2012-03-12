@@ -19,7 +19,13 @@
 # MA  02110-1301, USA.
 
 
-"""Repository access."""
+"""Repository access.
+
+This module contains the base class for git repositories
+(BaseRepo) and an implementation which uses a repository on 
+local disk (Repo).
+
+"""
 
 from io import BytesIO
 import errno
@@ -772,10 +778,19 @@ class BaseRepo(object):
 
     :ivar object_store: Dictionary-like object for accessing
         the objects
-    :ivar refs: Dictionary-like object with the refs in this repository
+    :ivar refs: Dictionary-like object with the refs in this
+        repository
     """
 
     def __init__(self, object_store, refs):
+        """Open a repository.
+
+        This shouldn't be called directly, but rather through one of the
+        base classes, such as MemoryRepo or Repo.
+
+        :param object_store: Object store to use
+        :param refs: Refs container to use
+        """
         self.object_store = object_store
         self.refs = refs
 
@@ -791,16 +806,16 @@ class BaseRepo(object):
 
     def _init_files(self, bare):
         """Initialize a default set of named files."""
+        from dulwich.config import ConfigFile
         self._put_named_file('description', b"Unnamed repository")
-        if bare:
-            bare_str = b"true"
-        else:
-            bare_str = b"false"
-        self._put_named_file('config', (b'[core]\n'
-                                        b'repositoryformatversion = 0\n'
-                                        b'filemode = true\n'
-                                        b'bare = ' + bare_str + b'\n'
-                                        b'logallrefupdates = true\n'))
+        f = BytesIO()
+        cf = ConfigFile()
+        cf.set(b"core", b"repositoryformatversion", b"0")
+        cf.set(b"core", b"filemode", b"true")
+        cf.set(b"core", b"bare", str(bare).lower().encode('ascii'))
+        cf.set(b"core", b"logallrefupdates", b"true")
+        cf.write_to_file(f)
+        self._put_named_file('config', f.getvalue())
         self._put_named_file(os.path.join('info', 'exclude'), b'')
 
     def get_named_file(self, path):
@@ -872,6 +887,14 @@ class BaseRepo(object):
                                                  get_tagged))
 
     def get_graph_walker(self, heads=None):
+        """Retrieve a graph walker.
+
+        A graph walker is used by a remote repository (or proxy)
+        to find out which objects are present in this repository.
+
+        :param heads: Repository heads to use (optional)
+        :return: A graph walker object
+        """
         if heads is None:
             heads = list(self.refs.as_dict(b'refs/heads').values())
         return self.object_store.get_graph_walker(heads)
@@ -905,17 +928,50 @@ class BaseRepo(object):
         return ret
 
     def get_object(self, sha):
+        """Retrieve the object with the specified SHA.
+
+        :param sha: SHA to retrieve
+        :return: A ShaFile object
+        :raise KeyError: when the object can not be found
+        """
         return self.object_store[sha]
 
     def get_parents(self, sha):
+        """Retrieve the parents of a specific commit.
+
+        :param sha: SHA of the commit for which to retrieve the parents
+        :return: List of parents
+        """
         return self.commit(sha).parents
 
     def get_config(self):
-        import configparser
-        p = configparser.RawConfigParser()
-        p.read(os.path.join(self._controldir, 'config'))
-        return dict((section, dict(p.items(section)))
-                    for section in p.sections())
+        """Retrieve the config object.
+
+        :return: `ConfigFile` object for the ``.git/config`` file.
+        """
+        from dulwich.config import ConfigFile
+        path = os.path.join(self._controldir, 'config')
+        try:
+            return ConfigFile.from_path(path)
+        except (IOError, OSError) as e:
+            if e.errno != errno.ENOENT:
+                raise
+            ret = ConfigFile()
+            ret.path = path
+            return ret
+
+    def get_config_stack(self):
+        """Return a config stack for this repository.
+
+        This stack accesses the configuration for both this repository
+        itself (.git/config) and the global configuration, which usually
+        lives in ~/.gitconfig.
+
+        :return: `Config` instance for this repository
+        """
+        from dulwich.config import StackedConfig
+        backends = [self.get_config()] + StackedConfig.default_backends()
+        return StackedConfig(backends, writable=backends[0])
 
     def get_peeled(self, ref):
         """Get the peeled value of a ref.
@@ -960,6 +1016,12 @@ class BaseRepo(object):
         return Walker(self.object_store, include, *args, **kwargs)
 
     def __getitem__(self, name):
+        """Retrieve a Git object by SHA1 or ref.
+
+        :param name: A Git object SHA1 or a ref name
+        :return: A `ShaFile` object, such as a Commit or Blob
+        :raise KeyError: when the specified ref or object does not exist
+        """
         if len(name) in (20, 40):
             try:
                 return self.object_store[name]
@@ -970,16 +1032,22 @@ class BaseRepo(object):
         except RefFormatError:
             raise KeyError(name)
 
-    def __iter__(self):
-        raise NotImplementedError(self.__iter__)
-
     def __contains__(self, name):
+        """Check if a specific Git object or ref is present.
+
+        :param name: Git object SHA1 or ref name
+        """
         if len(name) in (20, 40):
             return name in self.object_store or name in self.refs
         else:
             return name in self.refs
 
     def __setitem__(self, name, value):
+        """Set a ref.
+
+        :param name: ref name
+        :param value: Ref value - either a ShaFile object, or a hex sha
+        """
         if name.startswith(b"refs/") or name == b"HEAD":
             if isinstance(value, ShaFile):
                 self.refs[name] = value.id
@@ -992,10 +1060,20 @@ class BaseRepo(object):
             raise ValueError(name)
 
     def __delitem__(self, name):
+        """Remove a ref.
+
+        :param name: Name of the ref to remove
+        """
         if name.startswith(b"refs") or name == b"HEAD":
             del self.refs[name]
         else:
             raise ValueError(name)
+
+    def _get_user_identity(self):
+        config = self.get_config_stack()
+        return (
+            config.get((b"user", ), b"name") + b" <" +
+            config.get((b"user", ), b"email") + b">")
 
     def do_commit(self, message=None, committer=None,
                   author=None, commit_timestamp=None,
@@ -1031,9 +1109,8 @@ class BaseRepo(object):
         if merge_heads is None:
             # FIXME: Read merge heads from .git/MERGE_HEADS
             merge_heads = []
-        # TODO: Allow username to be missing, and get it from .git/config
         if committer is None:
-            raise ValueError("committer not set")
+            committer = self._get_user_identity()
         c.committer = committer
         if commit_timestamp is None:
             commit_timestamp = time.time()
@@ -1075,7 +1152,13 @@ class BaseRepo(object):
 
 
 class Repo(BaseRepo):
-    """A git repository backed by local disk."""
+    """A git repository backed by local disk.
+
+    To open an existing repository, call the contructor with
+    the path of the repository.
+
+    To create a new repository, use the Repo.init class method.
+    """
 
     def __init__(self, root, fsenc=None):
         if fsenc is None:
@@ -1154,11 +1237,12 @@ class Repo(BaseRepo):
 
         :param paths: List of paths, relative to the repository path
         """
-        from dulwich.index import cleanup_mode
+        if not isinstance(paths, list):
+            paths = [paths]
+        from dulwich.index import index_entry_from_stat
         index = self.open_index()
         for path in paths:
             full_path = os.path.join(self.path, path)
-            blob = Blob()
             try:
                 st = os.stat(full_path)
             except OSError:
@@ -1166,16 +1250,14 @@ class Repo(BaseRepo):
                 try:
                     del index[path.encode(sys.getfilesystemencoding())]
                 except KeyError:
-                    pass  # Doesn't exist in the index either
+                    pass # already removed
             else:
+                blob = Blob()
                 with open(full_path, 'rb') as f:
                     blob.data = f.read()
                 self.object_store.add_object(blob)
-                # XXX: Cleanup some of the other file properties as well?
-                index[path.encode(sys.getfilesystemencoding())] = (
-                    st.st_ctime, st.st_mtime, st.st_dev, st.st_ino,
-                    cleanup_mode(st.st_mode), st.st_uid, st.st_gid, st.st_size,
-                    blob.id, 0)
+                index[path.encode(sys.getfilesystemencoding())] = index_entry_from_stat(
+                    st, blob.id, 0)
         index.write()
 
     def clone(self, target_path, mkdir=True, bare=False, origin=b'origin'):
@@ -1218,6 +1300,12 @@ class Repo(BaseRepo):
 
     @classmethod
     def init(cls, path, mkdir=False):
+        """Create a new repository.
+
+        :param path: Path in which to create the repository
+        :param mkdir: Whether to create the directory
+        :return: `Repo` instance
+        """
         if mkdir:
             os.mkdir(path)
         controldir = os.path.join(path, ".git")
@@ -1227,6 +1315,13 @@ class Repo(BaseRepo):
 
     @classmethod
     def init_bare(cls, path):
+        """Create a new bare repository.
+
+        ``path`` should already exist and be an emty directory.
+
+        :param path: Path to create bare repository in
+        :return: a `Repo` instance
+        """
         return cls._init_maybe_bare(path, True)
 
     create = init_bare
@@ -1273,6 +1368,13 @@ class MemoryRepo(BaseRepo):
 
     @classmethod
     def init_bare(cls, objects, refs):
+        """Create a new bare repository in memory.
+
+        :param objects: Objects for the new repository,
+            as iterable
+        :param refs: Refs as dictionary, mapping names
+            to object SHA1s
+        """
         ret = cls()
         for obj in objects:
             ret.object_store.add_object(obj)

@@ -266,11 +266,9 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
             o.add_object(blob)
 
             with BytesIO() as f:
-                # BUG IS ON THE NEXT LINE
                 entries = build_pack(f, [
                   (REF_DELTA, (blob.id, b'more yummy data')),
                   ], store=o)
-
                 with o.add_thin_pack(f.read, None) as pack:
                     packed_blob_sha = sha_to_hex(entries[0][3])
                     pack.check_length_and_checksum()
