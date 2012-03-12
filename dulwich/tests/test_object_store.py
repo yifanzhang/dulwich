@@ -96,7 +96,6 @@ class ObjectStoreTests(object):
     def test_add_objects(self):
         data = [(testobject, b"mypath")]
         self.store.add_objects(data)
-        a = set(self.store)
         self.assertEqual(set([testobject.id]), set(self.store))
         self.assertTrue(testobject.id in self.store)
         r = self.store[testobject.id]

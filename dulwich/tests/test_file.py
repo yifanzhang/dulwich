@@ -55,7 +55,7 @@ class FancyRenameTests(TestCase):
 
         with open(self.bar, 'rb') as new_f:
             self.assertEqual(b'foo contents', new_f.read())
-         
+
     def test_dest_exists(self):
         self.create(self.bar, b'bar contents')
         fancy_rename(self.foo, self.bar)
@@ -141,15 +141,14 @@ class GitFileTests(TestCase):
 
     def test_open_twice(self):
         foo = self.path('foo')
-        f1 = GitFile(foo, 'wb')
-        f1.write(b'new')
-        try:
-            f2 = GitFile(foo, 'wb')
-            self.fail()
-        except OSError as e:
-            self.assertEqual(errno.EEXIST, e.errno)
-        f1.write(b' contents')
-        f1.close()
+        with GitFile(foo, 'wb') as f1:
+            f1.write(b'new')
+            try:
+                f2 = GitFile(foo, 'wb')
+                self.fail()
+            except OSError as e:
+                self.assertEqual(errno.EEXIST, e.errno)
+            f1.write(b' contents')
 
         # Ensure trying to open twice doesn't affect original.
         with open(foo, 'rb') as f:

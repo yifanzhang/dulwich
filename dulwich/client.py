@@ -152,10 +152,10 @@ class GitClient(object):
             activity.
         """
         self._report_activity = report_activity
-        self._fetch_capabilities = list(FETCH_CAPABILITIES)
-        self._send_capabilities = list(SEND_CAPABILITIES)
+        self._fetch_capabilities = set(FETCH_CAPABILITIES)
+        self._send_capabilities = set(SEND_CAPABILITIES)
         if thin_packs:
-            self._fetch_capabilities.append(b'thin-pack')
+            self._fetch_capabilities.add(b'thin-pack')
 
     def _read_refs(self, proto):
         server_capabilities = None
@@ -168,7 +168,7 @@ class GitClient(object):
             if server_capabilities is None:
                 (ref, server_capabilities) = extract_capabilities(ref)
             refs[ref] = sha
-        return refs, server_capabilities
+        return refs, set(server_capabilities)
 
     def send_pack(self, path, determine_wants, generate_pack_contents,
                   progress=None):
@@ -450,9 +450,7 @@ class TraditionalGitClient(GitClient):
         proto, unused_can_read = self._connect('receive-pack', path)
         with proto:
             old_refs, server_capabilities = self._read_refs(proto)
-            negotiated_capabilities = list(self._send_capabilities)
-            if b'report-status' not in server_capabilities:
-                negotiated_capabilities.remove(b'report-status')
+            negotiated_capabilities = self._send_capabilities & server_capabilities
             try:
                 new_refs = determine_wants(old_refs)
             except:
@@ -483,8 +481,8 @@ class TraditionalGitClient(GitClient):
         """
         proto, can_read = self._connect('upload-pack', path)
         with proto:
-            (refs, server_capabilities) = self._read_refs(proto)
-            negotiated_capabilities = list(self._fetch_capabilities)
+            refs, server_capabilities = self._read_refs(proto)
+            negotiated_capabilities = self._fetch_capabilities & server_capabilities
             try:
                 wants = determine_wants(refs)
             except:
@@ -528,7 +526,7 @@ class TCPGitClient(TraditionalGitClient):
             port = TCP_GIT_PORT
         self._host = host
         self._port = port
-        GitClient.__init__(self, *args, **kwargs)
+        TraditionalGitClient.__init__(self, *args, **kwargs)
 
     def _connect(self, cmd, path):
         sockaddrs = socket.getaddrinfo(self._host, self._port,
@@ -609,7 +607,7 @@ class SubprocessGitClient(TraditionalGitClient):
             self._close_stderr = kwargs.pop('close_stderr')
         except KeyError:
             self._close_stderr = False
-        GitClient.__init__(self, *args, **kwargs)
+        TraditionalGitClient.__init__(self, *args, **kwargs)
 
     def _connect(self, service, path):
         import subprocess
@@ -652,7 +650,7 @@ class SSHGitClient(TraditionalGitClient):
         self.host = host
         self.port = port
         self.username = username
-        GitClient.__init__(self, *args, **kwargs)
+        TraditionalGitClient.__init__(self, *args, **kwargs)
         self.alternative_paths = {}
 
     def _get_cmd_path(self, cmd):
@@ -747,7 +745,7 @@ class HttpGitClient(GitClient):
         url = self._get_url(path)
         old_refs, server_capabilities = self._discover_references(
             "git-receive-pack", url)
-        negotiated_capabilities = list(self._send_capabilities)
+        negotiated_capabilities = self._send_capabilities & server_capabilities
         new_refs = determine_wants(old_refs)
         if new_refs is None:
             return old_refs
@@ -782,7 +780,7 @@ class HttpGitClient(GitClient):
         url = self._get_url(path)
         refs, server_capabilities = self._discover_references(
             "git-upload-pack", url)
-        negotiated_capabilities = list(server_capabilities)
+        negotiated_capabilities = server_capabilities
         wants = determine_wants(refs)
         if wants is not None:
             wants = [cid for cid in wants if cid != ZERO_SHA]
@@ -806,31 +804,35 @@ class HttpGitClient(GitClient):
         pass
 
 
-def get_transport_and_path(uri):
+def get_transport_and_path(uri, **kwargs):
     """Obtain a git client from a URI or path.
 
     :param uri: URI or path
+    :param thin_packs: Whether or not thin packs should be retrieved
+    :param report_activity: Optional callback for reporting transport
+        activity.
     :return: Tuple with client instance and relative path.
     """
     parsed = urllib.parse.urlparse(uri)
     if parsed.scheme == 'git':
-        return TCPGitClient(parsed.hostname, port=parsed.port), parsed.path
+        return (TCPGitClient(parsed.hostname, port=parsed.port, **kwargs),
+                parsed.path)
     elif parsed.scheme == 'git+ssh':
         return SSHGitClient(parsed.hostname, port=parsed.port,
-                            username=parsed.username), parsed.path
+                            username=parsed.username, **kwargs), parsed.path
     elif parsed.scheme in ('http', 'https'):
         return HttpGitClient(urllib.parse.urlunparse(parsed)), parsed.path
 
     if parsed.scheme and not parsed.netloc:
         # SSH with no user@, zero or one leading slash.
-        return SSHGitClient(parsed.scheme), parsed.path
+        return SSHGitClient(parsed.scheme, **kwargs), parsed.path
     elif parsed.scheme:
         raise ValueError('Unknown git protocol scheme: %s' % parsed.scheme)
     elif '@' in parsed.path and ':' in parsed.path:
         # SSH with user@host:foo.
         user_host, path = parsed.path.split(':')
         user, host = user_host.rsplit('@')
-        return SSHGitClient(host, username=user), path
+        return SSHGitClient(host, username=user, **kwargs), path
 
     # Otherwise, assume it's a local path.
-    return SubprocessGitClient(), uri
+    return SubprocessGitClient(**kwargs), uri

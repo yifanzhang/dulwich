@@ -160,7 +160,7 @@ def ext_functest_builder(method, func):
 
     def do_test(self):
         if not isinstance(func, types.BuiltinFunctionType):
-            raise SkipTest("%s extension not found", func.__name__)
+            raise SkipTest("%s extension not found" % func.__name__)
         method(self, func)
 
     return do_test

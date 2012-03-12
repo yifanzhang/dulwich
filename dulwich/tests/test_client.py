@@ -158,6 +158,23 @@ class GitClientTests(TestCase):
         self.assertTrue(isinstance(client, HttpGitClient))
         self.assertEqual('/jelmer/dulwich', path)
 
+    def test_send_pack_no_sideband64k_with_update_ref_error(self):
+        # No side-bank-64k reported by server shouldn't try to parse
+        # side band data
+        pkts = [b'55dcc6bf963f922e1ed5c4bbaaefcfacef57b1d7 capabilities^{}\x00 report-status ofs-delta\n',
+                b'',
+                b"unpack ok",
+                b"ng refs/foo/bar pre-receive hook declined",
+                b'']
+        for pkt in pkts:
+            if pkt == b'':
+                self.rin.write(b"0000")
+            else:
+                self.rin.write(("%04x" % (len(pkt)+4)).encode('ascii') + pkt)
+        self.rin.seek(0)
+        self.assertRaises(UpdateRefsError,
+            self.client.send_pack, "blah", lambda x: {}, lambda h,w: [])
+
 
 class SSHGitClientTests(TestCase):
 

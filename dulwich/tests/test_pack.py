@@ -400,6 +400,7 @@ class TestPack(PackTests):
             self.assertTrue(isinstance(objs[tree_sha], Tree))
             self.assertTrue(isinstance(objs[commit_sha], Commit))
 
+
 class WritePackTests(TestCase):
 
     def test_write_pack_header(self):

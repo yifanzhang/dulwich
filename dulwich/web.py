@@ -19,6 +19,7 @@
 """HTTP server for dulwich that implements the git smart HTTP protocol."""
 
 from io import BytesIO
+import gzip
 import os
 import re
 import sys
@@ -228,18 +229,9 @@ def handle_service_request(req, backend, mat):
         return
     req.nocache()
     write = req.respond(HTTP_OK, 'application/x-%s-result' % service)
-
-    input = req.environ['wsgi.input']
-    # This is not necessary if this app is run from a conforming WSGI server.
-    # Unfortunately, there's no way to tell that at this point.
-    # TODO: git may used HTTP/1.1 chunked encoding instead of specifying
-    # content-length
-    content_length = req.environ.get('CONTENT_LENGTH', '')
-    if content_length:
-        input = _LengthLimitedFile(input, int(content_length))
-    with ReceivableProtocol(input.read, write, None) as proto:
-        with handler_cls(backend, [url_prefix(mat)], proto, http_req=req) as handler:
-            handler.handle()
+    proto = ReceivableProtocol(req.environ['wsgi.input'].read, write)
+    handler = handler_cls(backend, [url_prefix(mat)], proto, http_req=req)
+    handler.handle()
 
 
 class HTTPGitRequest(object):
@@ -370,6 +362,54 @@ class HTTPGitRequestHandler(WSGIRequestHandler):
         logger.error(*args)
 
 
+class GunzipFilter(object):
+    """WSGI middleware that unzips gzip-encoded requests before
+    passing on to the underlying application.
+    """
+
+    def __init__(self, application):
+        self.app = application
+
+    def __call__(self, environ, start_response):
+        if environ.get('HTTP_CONTENT_ENCODING', '') == 'gzip':
+            zlength = int(environ.get('CONTENT_LENGTH', '0'))
+            environ.pop('HTTP_CONTENT_ENCODING')
+            if 'CONTENT_LENGTH' in environ:
+                del environ['CONTENT_LENGTH']
+            environ['wsgi.input'] = gzip.GzipFile(filename=None,
+                fileobj=environ['wsgi.input'], mode='r')
+        return self.app(environ, start_response)
+
+
+class LimitedInputFilter(object):
+    """WSGI middleware that limits the input length of a request to that
+    specified in Content-Length.
+    """
+
+    def __init__(self, application):
+        self.app = application
+
+    def __call__(self, environ, start_response):
+        # This is not necessary if this app is run from a conforming WSGI
+        # server. Unfortunately, there's no way to tell that at this point.
+        # TODO: git may used HTTP/1.1 chunked encoding instead of specifying
+        # content-length
+        content_length = environ.get('CONTENT_LENGTH', '')
+        if content_length:
+            environ['wsgi.input'] = _LengthLimitedFile(
+                environ['wsgi.input'], int(content_length))
+        return self.app(environ, start_response)
+
+
+def make_wsgi_chain(backend, dumb=False, handlers=None):
+    """Factory function to create an instance of HTTPGitApplication,
+    correctly wrapped with needed middleware.
+    """
+    app = HTTPGitApplication(backend, dumb, handlers)
+    wrapped_app = GunzipFilter(LimitedInputFilter(app))
+    return wrapped_app
+
+
 def main(argv=sys.argv):
     """Entry point for starting an HTTP git server."""
     if len(argv) > 1:
@@ -383,7 +423,7 @@ def main(argv=sys.argv):
 
     log_utils.default_logging_config()
     backend = DictBackend({b'/': Repo(gitdir)})
-    app = HTTPGitApplication(backend)
+    app = make_wsgi_chain(backend)
     server = make_server(listen_addr, port, app,
                          handler_class=HTTPGitRequestHandler)
     logger.info('Listening for HTTP connections on %s:%d', listen_addr,

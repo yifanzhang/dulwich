@@ -42,7 +42,7 @@ job of the commit::
   >>> author = b"Your Name <your.email@example.com>"
   >>> commit.author = commit.committer = author
   >>> commit.commit_time = commit.author_time = int(time())
-  >>> tz = parse_timezone('-0200')[0]
+  >>> tz = parse_timezone(b'-0200')[0]
   >>> commit.commit_timezone = commit.author_timezone = tz
   >>> commit.encoding = b"UTF-8"
   >>> commit.message = b"Initial commit"

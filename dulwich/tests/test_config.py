@@ -31,6 +31,7 @@ from dulwich.config import (
     _unescape_value,
     )
 from dulwich.tests import TestCase
+import os
 
 
 class ConfigFileTests(TestCase):
@@ -146,6 +147,10 @@ class ConfigFileTests(TestCase):
         c.write_to_file(f)
         self.assertEqual(b"[branch \"blie\"]\nfoo = bar\n", f.getvalue())
 
+    def test_same_line(self):
+        cf = self.from_file(b"[branch.foo] foo = bar\n")
+        self.assertEqual(b"bar", cf.get((b"branch", b"foo"), b"foo"))
+
 
 class ConfigDictTests(TestCase):
 
@@ -170,6 +175,8 @@ class ConfigDictTests(TestCase):
 class StackedConfigTests(TestCase):
 
     def test_default_backends(self):
+        self.addCleanup(os.environ.__setitem__, "HOME", os.environ["HOME"])
+        os.environ["HOME"] = "/nonexistant"
         StackedConfig.default_backends()
 
 

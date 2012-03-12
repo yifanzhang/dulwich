@@ -36,9 +36,6 @@ from dulwich.tests.compat.utils import (
     require_git_version,
     run_git_or_fail,
     )
-from dulwich.errors import (
-    ObjectFormatException
-)
 
 
 class TestPack(PackTests):

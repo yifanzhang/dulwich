@@ -27,6 +27,7 @@ import datetime
 import os
 import stat
 import binascii
+import warnings
 
 from dulwich.errors import (
     ObjectFormatException,
@@ -734,6 +735,16 @@ class TimezoneTests(TestCase):
         self.assertEqual(b'-0440',
             format_timezone(int(((-4 * 60) - 40) * 60)))
 
+    def test_format_timezone_double_negative(self):
+        self.assertEqual(b"--700",
+            format_timezone(int(((7 * 60)) * 60), True))
+
     def test_parse_timezone_pdt_half(self):
         self.assertEqual((((-4 * 60) - 40) * 60, False),
             parse_timezone(b'-0440'))
+
+    def test_parse_timezone_double_negative(self):
+        self.assertEqual(
+            (int(((7 * 60)) * 60), False), parse_timezone(b"+700"))
+        self.assertEqual(
+            (int(((7 * 60)) * 60), True), parse_timezone(b"--700"))
