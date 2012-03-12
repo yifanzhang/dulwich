@@ -252,7 +252,7 @@ class UploadPackHandler(Handler):
         self.advertise_refs = advertise_refs
 
     def close(self):
-        if hasattr(self.repo, 'close'):
+        if getattr(self.repo, 'close', None) is not None:
             self.repo.close()
 
     @classmethod
@@ -653,7 +653,7 @@ class ReceivePackHandler(Handler):
         self.advertise_refs = advertise_refs
 
     def close(self):
-        if hasattr(self.repo, 'close'):
+        if getattr(self.repo, 'close', None) is not None:
             self.repo.close()
 
     @classmethod
@@ -858,10 +858,7 @@ def serve_command(handler_cls, argv=sys.argv, backend=None, inf=sys.stdin.buffer
         outf.write(data)
         outf.flush()
 
-    if hasattr(inf, 'buffer'):
-        recv_fn = inf.buffer.read
-    else:
-        recv_fn = inf.read
+    recv_fn = getattr(inf, 'buffer', inf).read
 
     with Protocol(inf.read, send_fn, None) as proto:
         with handler_cls(backend, [arg.encode(sys.getfilesystemencoding()) for arg in argv[1:]], proto) as handler:

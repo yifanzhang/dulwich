@@ -203,7 +203,7 @@ class GitClient(object):
                 target.get_graph_walker(), f.write, progress)
         finally:
             pack = commit()
-            if pack and hasattr(pack, 'close'):
+            if pack and getattr(pack, 'close', None) is not None:
                 pack.close()
 
     def fetch_pack(self, path, determine_wants, graph_walker, pack_data,

@@ -801,7 +801,7 @@ class BaseRepo(object):
         self.close()
 
     def close(self):
-        if hasattr(self.object_store, 'close'):
+        if getattr(self.object_store, 'close', None) is not None:
             self.object_store.close()
 
     def _init_files(self, bare):
