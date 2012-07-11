@@ -118,7 +118,7 @@ class CommitTreeTests(TestCase):
         rootid = commit_tree(self.store, blobs)
         self.assertEqual(rootid, "1a1e80437220f9312e855c37ac4398b68e5c1d50")
         self.assertEqual((stat.S_IFREG, blob.id), self.store[rootid]["bla"])
-        self.assertEqual(set([rootid, blob.id]), set(self.store._data.keys()))
+        self.assertEqual(set([rootid, blob.id]), set(self.store.__iter__()))
 
     def test_nested(self):
         blob = Blob()
@@ -132,7 +132,7 @@ class CommitTreeTests(TestCase):
         self.assertEqual((stat.S_IFDIR, dirid), self.store[rootid]["bla"])
         self.assertEqual((stat.S_IFREG, blob.id), self.store[dirid]["bar"])
         self.assertEqual(set([rootid, dirid, blob.id]),
-                          set(self.store._data.keys()))
+                          set(self.store.__iter__()))
 
 
 class CleanupModeTests(TestCase):

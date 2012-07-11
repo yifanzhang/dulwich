@@ -26,6 +26,10 @@ import os
 import stat
 import tempfile
 
+from collections import (
+    deque,
+    )
+
 from dulwich.diff_tree import (
     tree_changes,
     walk_trees,
@@ -57,6 +61,10 @@ from dulwich.pack import (
     compute_file_sha,
     PackIndexer,
     PackStreamCopier,
+    create_delta,
+    apply_delta,
+    OFS_DELTA,
+    REF_DELTA,
     )
 
 INFODIR = 'info'
@@ -609,13 +617,12 @@ class DiskObjectStore(PackBasedObjectStore):
         os.mkdir(os.path.join(path, PACKDIR))
         return cls(path)
 
-
-class MemoryObjectStore(BaseObjectStore):
-    """Object store that keeps all objects in memory."""
-
+class MemoryObjectStore(PackBasedObjectStore):
+    """Object store that keeps all objects packed in memory."""
     def __init__(self):
         super(MemoryObjectStore, self).__init__()
-        self._data = {}
+        self._packed = {}
+        self._loose = {}
 
     def _to_hexsha(self, sha):
         if len(sha) == 40:
@@ -627,20 +634,23 @@ class MemoryObjectStore(BaseObjectStore):
 
     def contains_loose(self, sha):
         """Check if a particular object is present by SHA1 and is loose."""
-        return self._to_hexsha(sha) in self._data
+        return self._to_hexsha(sha) in self._loose
 
     def contains_packed(self, sha):
         """Check if a particular object is present by SHA1 and is packed."""
-        return False
+        return self._to_hexsha(sha) in self._packed
 
     def __iter__(self):
         """Iterate over the SHAs that are present in this store."""
-        return self._data.iterkeys()
-
+        for sha in self._loose.iterkeys():
+            yield sha
+        for sha in self._packed.iterkeys():
+            yield sha
+   
     @property
     def packs(self):
         """List with pack objects."""
-        return []
+        return list(self._packed.iterkeys())
 
     def get_raw(self, name):
         """Obtain the raw text for an object.
@@ -648,29 +658,96 @@ class MemoryObjectStore(BaseObjectStore):
         :param name: sha for the object.
         :return: tuple with numeric type and object contents.
         """
-        obj = self[self._to_hexsha(name)]
-        return obj.type_num, obj.as_raw_string()
+        hexsha = self._to_hexsha(name)
+        if hexsha in self._loose:
+            o = self._loose[hexsha]
+            return o.type_num, o.as_raw_string()
+        return self._get_packed_raw(hexsha)
+
+    def _get_packed_raw(self, hexsha):
+        type_num, sha, base, delta = self._packed[hexsha]
+        if base != None:
+            return type_num, ''.join(apply_delta(self._get_packed_raw(base)[1], delta))
+        else:
+            return type_num, delta
 
     def __getitem__(self, name):
-        return self._data[self._to_hexsha(name)]
+        sha = self._to_hexsha(name)
+        if sha in self._loose:
+            return self._loose[sha]
+        type_num, uncomp = self._get_packed_raw(sha)
+        return ShaFile.from_raw_string(type_num, uncomp)
+
 
     def __delitem__(self, name):
         """Delete an object from this store, for testing only."""
-        del self._data[self._to_hexsha(name)]
+        hexsha = self._to_hexsha(name)
+        if hexsha in self._loose:
+            del self._loose[hexsha]
+        else:
+            del self._packed[hexsha]
 
     def add_object(self, obj):
         """Add a single object to this object store.
 
         """
-        self._data[obj.id] = obj
+        self._loose[obj.id] = obj
 
     def add_objects(self, objects):
         """Add a set of objects to this object store.
 
         :param objects: Iterable over a list of objects.
         """
-        for obj, path in objects:
-            self._data[obj.id] = obj
+        for obj, _ in objects:
+            self._loose[obj.id] = obj
+
+    def _deltify_loose_objects(self):
+        """pack blobs in loose pack"""
+        window = 40
+
+        # Build a list of objects ordered by the magic Linus heuristic
+        # This helps us find good objects to diff against us
+        magic = []
+        for obj in self._loose.values():
+                magic.append((obj.type_num, obj.sha().digest(), -obj.raw_length(), obj.as_raw_string()))
+        for type_num, sha, base, delta in self._packed.values():
+            if type_num not in {OFS_DELTA, REF_DELTA}:
+                magic.append((type_num, sha, -len(delta), delta))
+        magic.sort()
+
+        possible_bases = deque()
+
+        def to_lines(raw_string):
+            return raw_string.splitlines(True)
+
+        for type_num, sha, neg_length, o in magic:
+            raw = o
+            winner = raw
+            winner_base = None
+            for base_sha, base_type_num, base in possible_bases:
+                if base_type_num != type_num:
+                    continue
+                delta = create_delta(to_lines(base), to_lines(raw))
+                if len(delta) < len(winner):
+                    winner_base = base_sha
+                    winner = delta
+            yield type_num, sha, winner_base, winner
+            possible_bases.appendleft((self._to_hexsha(sha), type_num, raw))
+            while len(possible_bases) > window:
+                possible_bases.pop()
+
+    def pack_loose_objects(self):
+        counter = 0
+        for type_num, sha, base, delta in self._deltify_loose_objects():
+            # remove from loose list
+            hexsha = self._to_hexsha(sha)
+            if hexsha in self._loose:
+                del self._loose[hexsha]
+            else:
+                del self._packed[hexsha]
+            self._packed[hexsha] = (type_num, sha, base, delta)
+            counter += 1
+        return counter
 
 
 class ObjectImporter(object):

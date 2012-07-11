@@ -1494,3 +1494,4 @@ class MemoryRepo(BaseRepo):
             ret.refs[refname] = sha
         ret._init_files(bare=True)
         return ret
+
